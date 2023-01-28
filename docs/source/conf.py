@@ -122,6 +122,9 @@ html_sidebars = {
 }
 
 
+# avoid showing the "Show the Source" link
+html_show_sourcelink = False
+
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
