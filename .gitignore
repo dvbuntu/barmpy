@@ -1,0 +1,9 @@
+barmpy.egg-info/dependency_links.txt
+barmpy.egg-info/PKG-INFO
+barmpy.egg-info/requires.txt
+barmpy.egg-info/SOURCES.txt
+barmpy.egg-info/top_level.txt
+*.pyc
+*catboost_info*
+*restats*
+*~
