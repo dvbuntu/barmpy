@@ -9,16 +9,18 @@ NN
 
 Before building an ensemble, it's helpful to understand the core component that goes into it.  In this case, we use a neural network implemented in `sklearn` with a few extra methods to ease their use in BARN.  Eventually, this class will inherit from an abstract one for general BARM components.
 
-.. automodule:: barmpy.barn.NN
+.. autoclass:: barmpy.barn.NN
    :members:
+   :undoc-members:
 
 BARN Class
 ----------
 
 Armed with a core `NN` class above, we can train the entire ensemble following our Bayesian procedure. 
 
-.. automodule:: barmpy.barn.BARN
+.. autoclass:: barmpy.barn.BARN
    :members:
+   :undoc-members:
 
 Example
 ~~~~~~~
@@ -29,7 +31,7 @@ Let's walk through a minimal example training an ensemble with BARN.  Start by g
 
    import numpy as np
    X = np.random([100,2])
-   # make a simply linear relationship
+   # make a simple linear relationship
    Y = X[:,0] + 2*X[:,1] + np.random.random(100)/10
 
 Now we'll initialize a `BARN` setup with 3 `NN`'s.  We'll use the default

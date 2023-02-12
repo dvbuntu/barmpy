@@ -46,8 +46,31 @@
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="math.html">Math</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">BARN</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#nn">NN</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#nn">NN</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#barmpy.barn.NN"><code class="docutils literal notranslate"><span class="pre">NN</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#barmpy.barn.NN.accept_donation"><code class="docutils literal notranslate"><span class="pre">NN.accept_donation()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#barmpy.barn.NN.load"><code class="docutils literal notranslate"><span class="pre">NN.load()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#barmpy.barn.NN.log_acceptance"><code class="docutils literal notranslate"><span class="pre">NN.log_acceptance()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#barmpy.barn.NN.log_likelihood"><code class="docutils literal notranslate"><span class="pre">NN.log_likelihood()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#barmpy.barn.NN.log_prior"><code class="docutils literal notranslate"><span class="pre">NN.log_prior()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#barmpy.barn.NN.log_transition"><code class="docutils literal notranslate"><span class="pre">NN.log_transition()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#barmpy.barn.NN.save"><code class="docutils literal notranslate"><span class="pre">NN.save()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#barmpy.barn.NN.train"><code class="docutils literal notranslate"><span class="pre">NN.train()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#barn-class">BARN Class</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#barmpy.barn.BARN"><code class="docutils literal notranslate"><span class="pre">BARN</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#barmpy.barn.BARN.batch_means"><code class="docutils literal notranslate"><span class="pre">BARN.batch_means()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#barmpy.barn.BARN.phi_viz"><code class="docutils literal notranslate"><span class="pre">BARN.phi_viz()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#barmpy.barn.BARN.predict"><code class="docutils literal notranslate"><span class="pre">BARN.predict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#barmpy.barn.BARN.save"><code class="docutils literal notranslate"><span class="pre">BARN.save()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#barmpy.barn.BARN.setup_nets"><code class="docutils literal notranslate"><span class="pre">BARN.setup_nets()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#barmpy.barn.BARN.train"><code class="docutils literal notranslate"><span class="pre">BARN.train()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#barmpy.barn.BARN.viz"><code class="docutils literal notranslate"><span class="pre">BARN.viz()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="#example">Example</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#coming-soon">Coming Soon</a></li>
 </ul>
@@ -85,20 +108,123 @@
 <section id="nn">
 <h2>NN<a class="headerlink" href="#nn" title="Permalink to this heading"></a></h2>
 <p>Before building an ensemble, it’s helpful to understand the core component that goes into it.  In this case, we use a neural network implemented in <cite>sklearn</cite> with a few extra methods to ease their use in BARN.  Eventually, this class will inherit from an abstract one for general BARM components.</p>
-<span class="target" id="module-barmpy.barn.NN"></span><p>Neural Network with single hidden layer implemented with sklearn.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="barmpy.barn.NN">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">barmpy.barn.</span></span><span class="sig-name descname"><span class="pre">NN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_nodes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_donor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">l</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#NN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.NN" title="Permalink to this definition"></a></dt>
+<dd><p>Neural Network with single hidden layer implemented with sklearn.</p>
 <p>Includes methods to do MCMC transitions and calculations.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="barmpy.barn.NN.accept_donation">
+<span class="sig-name descname"><span class="pre">accept_donation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">donor_num_nodes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">donor_weights</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">donor_intercepts</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#NN.accept_donation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.NN.accept_donation" title="Permalink to this definition"></a></dt>
+<dd><p>Replace our weights with those of another <cite>NN</cite> (passed as weights).</p>
+<p>Donor can be different size; if smaller, earlier weights in donee
+are overwritten.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="barmpy.barn.NN.load">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#NN.load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.NN.load" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="barmpy.barn.NN.log_acceptance">
+<span class="sig-name descname"><span class="pre">log_acceptance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#NN.log_acceptance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.NN.log_acceptance" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="barmpy.barn.NN.log_likelihood">
+<span class="sig-name descname"><span class="pre">log_likelihood</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#NN.log_likelihood"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.NN.log_likelihood" title="Permalink to this definition"></a></dt>
+<dd><p>Log likelihood of <cite>NN</cite> assuming normally distributed errors.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="barmpy.barn.NN.log_prior">
+<span class="sig-name descname"><span class="pre">log_prior</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pmf=&lt;bound</span> <span class="pre">method</span> <span class="pre">rv_discrete.logpmf</span> <span class="pre">of</span> <span class="pre">&lt;scipy.stats._discrete_distns.poisson_gen</span> <span class="pre">object&gt;&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#NN.log_prior"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.NN.log_prior" title="Permalink to this definition"></a></dt>
+<dd><p>Log prior probability of the <cite>NN</cite>.  Assumes one distribution
+parameter, <cite>self.l</cite>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="barmpy.barn.NN.log_transition">
+<span class="sig-name descname"><span class="pre">log_transition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#NN.log_transition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.NN.log_transition" title="Permalink to this definition"></a></dt>
+<dd><p>Transition probability from self to target</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="barmpy.barn.NN.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#NN.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.NN.save" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="barmpy.barn.NN.train">
+<span class="sig-name descname"><span class="pre">train</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epochs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#NN.train"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.NN.train" title="Permalink to this definition"></a></dt>
+<dd><p>Train network from current position with given data</p>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 <section id="barn-class">
 <h2>BARN Class<a class="headerlink" href="#barn-class" title="Permalink to this heading"></a></h2>
 <p>Armed with a core <cite>NN</cite> class above, we can train the entire ensemble following our Bayesian procedure.</p>
-<span class="target" id="module-barmpy.barn.BARN"></span><p>Bayesian Additive Regression Networks ensemble.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="barmpy.barn.BARN">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">barmpy.barn.</span></span><span class="sig-name descname"><span class="pre">BARN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_nets</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trans_probs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0.4,</span> <span class="pre">0.6]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trans_options</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['grow',</span> <span class="pre">'shrink']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dname</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'default_name'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#BARN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.BARN" title="Permalink to this definition"></a></dt>
+<dd><p>Bayesian Additive Regression Networks ensemble.</p>
 <p>Specify and train an array of neural nets with Bayesian posterior.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="barmpy.barn.BARN.batch_means">
+<span class="sig-name descname"><span class="pre">batch_means</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_batch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">np_out</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'val_resid.npy'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outfile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'var_all.csv'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'a'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#BARN.batch_means"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.BARN.batch_means" title="Permalink to this definition"></a></dt>
+<dd><p>Compute batch means variance over computed results.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="barmpy.barn.BARN.phi_viz">
+<span class="sig-name descname"><span class="pre">phi_viz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">outname</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'phi.png'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">close</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#BARN.phi_viz"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.BARN.phi_viz" title="Permalink to this definition"></a></dt>
+<dd><p>Visualize the <cite>phi</cite> parameter, validation error over time</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="barmpy.barn.BARN.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#BARN.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.BARN.predict" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="barmpy.barn.BARN.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">outname</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#BARN.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.BARN.save" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="barmpy.barn.BARN.setup_nets">
+<span class="sig-name descname"><span class="pre">setup_nets</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">l</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#BARN.setup_nets"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.BARN.setup_nets" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="barmpy.barn.BARN.train">
+<span class="sig-name descname"><span class="pre">train</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Xtr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ytr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Xva</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Yva</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Xte</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Yte</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_iters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#BARN.train"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.BARN.train" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="barmpy.barn.BARN.viz">
+<span class="sig-name descname"><span class="pre">viz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">outname</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'results.png'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra_slots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">close</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/barmpy/barn.html#BARN.viz"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#barmpy.barn.BARN.viz" title="Permalink to this definition"></a></dt>
+<dd><p>Visualize results of BARN analysis.</p>
+<dl class="simple">
+<dt>Shows:</dt><dd><ol class="arabic simple">
+<li><p>Plot of <cite>Y_test</cite> vs <cite>Y_test_pred_initial</cite> (optional)</p></li>
+<li><p>Plot of <cite>Y_test</cite> vs <cite>Y_test_pred_final</cite></p></li>
+</ol>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 <section id="example">
 <h3>Example<a class="headerlink" href="#example" title="Permalink to this heading"></a></h3>
 <p>Let’s walk through a minimal example training an ensemble with BARN.  Start by generating some data (or reading in some of your own).</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="p">([</span><span class="mi">100</span><span class="p">,</span><span class="mi">2</span><span class="p">])</span>
-<span class="c1"># make a simply linear relationship</span>
+<span class="c1"># make a simple linear relationship</span>
 <span class="n">Y</span> <span class="o">=</span> <span class="n">X</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">X</span><span class="p">[:,</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span><span class="o">/</span><span class="mi">10</span>
 </pre></div>
 </div>
