@@ -1,6 +1,8 @@
+
 # BARMPy
 
-[![Build Status](https://travis-ci.org/dvbuntu/barmpy.svg?branch=main)](https://travis-ci.org/dvbuntu/barmpy)
+![Coverage](https://github.com/github/docs/actions/workflows/test-barmpy.yml/badge.svg)
+
 
 ## Intro
 
