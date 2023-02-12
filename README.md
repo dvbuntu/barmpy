@@ -1,7 +1,7 @@
 
 # BARMPy
 
-![Coverage](https://github.com/github/docs/actions/workflows/test-barmpy.yml/badge.svg)
+![Coverage](https://github.com/dvbuntu/barmpy/actions/workflows/test-barmpy.yml/badge.svg)
 
 
 ## Intro
