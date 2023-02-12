@@ -26,6 +26,7 @@ Example
 Let's walk through a minimal example training an ensemble with BARN.  Start by generating some data (or reading in some of your own).
 
 .. code-block:: python
+
    import numpy as np
    X = np.random([100,2])
    # make a simply linear relationship
@@ -34,6 +35,7 @@ Let's walk through a minimal example training an ensemble with BARN.  Start by g
 Now we'll initialize a `BARN` setup with 3 `NN`'s.  We'll use the default
 
 .. code-block:: python
+
    from barmpy.barn import BARN, NN
    model = BARN(num_nets=3, dname='example')
    model.setup_nets()
@@ -42,6 +44,7 @@ Now we'll initialize a `BARN` setup with 3 `NN`'s.  We'll use the default
 Actually running the model is simple, but you can tweak the MCMC parameters to your liking.  After the specified number of MCMC iterations, your model is ready for pointwise inference by using the last ensemble in the chain.
 
 .. code-block:: python
+
    model.train(X,Y, total_iters=100)
    Yhat = model.predict(X)
    print((Y-Yhat)**2/np.std(Y)) # relative error

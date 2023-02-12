@@ -12,12 +12,11 @@ setup(
     author_email='vanboxel@math.arizona.edu',
     packages=find_packages(),
     install_requires=[
-        'matplotlib'
+        'matplotlib',
         'numpy',
         'pandas',
-        'pickle',
         'scipy',
-        'sklearn',
+        'scikit-learn',
         'tqdm',
     ]
 )

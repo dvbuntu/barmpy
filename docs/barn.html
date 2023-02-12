@@ -85,15 +85,35 @@
 <section id="nn">
 <h2>NN<a class="headerlink" href="#nn" title="Permalink to this heading"></a></h2>
 <p>Before building an ensemble, it’s helpful to understand the core component that goes into it.  In this case, we use a neural network implemented in <cite>sklearn</cite> with a few extra methods to ease their use in BARN.  Eventually, this class will inherit from an abstract one for general BARM components.</p>
+<span class="target" id="module-barmpy.barn.NN"></span><p>Neural Network with single hidden layer implemented with sklearn.</p>
+<p>Includes methods to do MCMC transitions and calculations.</p>
 </section>
 <section id="barn-class">
 <h2>BARN Class<a class="headerlink" href="#barn-class" title="Permalink to this heading"></a></h2>
 <p>Armed with a core <cite>NN</cite> class above, we can train the entire ensemble following our Bayesian procedure.</p>
+<span class="target" id="module-barmpy.barn.BARN"></span><p>Bayesian Additive Regression Networks ensemble.</p>
+<p>Specify and train an array of neural nets with Bayesian posterior.</p>
 <section id="example">
 <h3>Example<a class="headerlink" href="#example" title="Permalink to this heading"></a></h3>
 <p>Let’s walk through a minimal example training an ensemble with BARN.  Start by generating some data (or reading in some of your own).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="p">([</span><span class="mi">100</span><span class="p">,</span><span class="mi">2</span><span class="p">])</span>
+<span class="c1"># make a simply linear relationship</span>
+<span class="n">Y</span> <span class="o">=</span> <span class="n">X</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">X</span><span class="p">[:,</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span><span class="o">/</span><span class="mi">10</span>
+</pre></div>
+</div>
 <p>Now we’ll initialize a <cite>BARN</cite> setup with 3 <cite>NN</cite>’s.  We’ll use the default</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">barmpy.barn</span> <span class="kn">import</span> <span class="n">BARN</span><span class="p">,</span> <span class="n">NN</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">BARN</span><span class="p">(</span><span class="n">num_nets</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">dname</span><span class="o">=</span><span class="s1">&#39;example&#39;</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">setup_nets</span><span class="p">()</span>
+</pre></div>
+</div>
 <p>Actually running the model is simple, but you can tweak the MCMC parameters to your liking.  After the specified number of MCMC iterations, your model is ready for pointwise inference by using the last ensemble in the chain.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">Y</span><span class="p">,</span> <span class="n">total_iters</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">Yhat</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">((</span><span class="n">Y</span><span class="o">-</span><span class="n">Yhat</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">Y</span><span class="p">))</span> <span class="c1"># relative error</span>
+</pre></div>
+</div>
 </section>
 <section id="coming-soon">
 <h3>Coming Soon<a class="headerlink" href="#coming-soon" title="Permalink to this heading"></a></h3>
