@@ -20,6 +20,7 @@ class NN(object):
     def __init__(self, num_nodes=10, weight_donor=None, l=10, lr=0.01, r=None):
         self.num_nodes = num_nodes
         # make an NN with a single hidden layer with num_nodes nodes
+        ## can set max_iter to set max_epochs
         self.model = sknn.MLPRegressor([num_nodes], learning_rate_init=lr, random_state=r)
         # l is poisson shape param, expected number of nodes
         self.l = l
@@ -77,15 +78,15 @@ class NN(object):
         # TODO: figure out how to fix num epochs
         self.model.fit(X,Y)
 
-    def log_prior(self):
-        return scipy.stats.poisson.logpmf(self.num_nodes, self.l)
+    def log_prior(self, pmf=scipy.stats.poisson.logpmf):
+        return pmf(self.num_nodes, self.l)
 
     def log_likelihood(self, X, Y):
         # compute residuals
         yhat = self.model.predict(X)
         resid = Y - yhat
         # compute stddev of these
-        std = np.std(resid)
+        std = np.std(resid) # maybe use std prior here?
         # normal likelihood
         return np.sum(scipy.stats.norm.logpdf(resid, 0, std))
 
@@ -128,7 +129,7 @@ class BARN(object):
 
     def train(self, Xtr, Ytr, Xva=None, Yva=None, Xte=None, Yte=None, total_iters=10):
         if Xva is None:
-            Xtr, XX, Ytr, YY = skms.train_test_split(X,Y, test_size=0.5) # training
+            Xtr, XX, Ytr, YY = skms.train_test_split(Xtr,Ytr, test_size=0.5) # training
             if Xte is None:
                 Xva, Xte, Yva, Yte = skms.train_test_split(XX,YY, test_size=0.5) # valid and test
             else:
@@ -245,11 +246,13 @@ class BARN(object):
             batch_size = self.total_iters//num_batch
         # check batch means variance
         mu = np.mean(self.phi[burn:])
-        np.save(np_out, self.phi) # only final saved
+        if np_out:
+            np.save(np_out, self.phi) # only final saved
         batch_phi = np.mean(self.phi[burn:].reshape((num_batch, batch_size)), axis=1)
         var = np.sum((batch_phi-mu)**2)/(num_batch*(num_batch-1))
-        with open(outfile, mode) as f:
-            print(f'{self.dname}, {var}', file=f)
+        if outfile:
+            with open(outfile, mode) as f:
+                print(f'{self.dname}, {var}', file=f)
         return var
 
     def save(self, outname):
