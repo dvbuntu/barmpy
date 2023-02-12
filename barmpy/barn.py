@@ -22,7 +22,10 @@ class NN(object):
 
     Includes methods to do MCMC transitions and calculations.
     '''
-    def __init__(self, num_nodes=10, weight_donor=None, l=10, lr=0.01, r=None):
+    def __init__(self, num_nodes=10,
+            weight_donor=None,
+            l=10, lr=0.01, r=None,
+            epochs=20):
         self.num_nodes = num_nodes
         # make an NN with a single hidden layer with num_nodes nodes
         ## can set max_iter to set max_epochs
@@ -84,9 +87,8 @@ class NN(object):
         self.accept_donation(donor_num_nodes, donor_weights, donor_intercepts)
         return N
 
-    def train(self, X, Y, epochs=10):
+    def train(self, X, Y):
         '''Train network from current position with given data'''
-        # TODO: figure out how to fix num epochs
         self.model.fit(X,Y)
 
     def log_prior(self, pmf=scipy.stats.poisson.logpmf):
@@ -151,8 +153,8 @@ class BARN(object):
         self.trans_options = trans_options
         self.dname = dname
 
-    def setup_nets(self, l=10, lr=0.01):
-        self.cyberspace = [NN(1, l=l, lr=lr) for i in range(self.num_nets)]
+    def setup_nets(self, l=10, lr=0.01, epochs=10):
+        self.cyberspace = [NN(1, l=l, lr=lr, epochs=epochs) for i in range(self.num_nets)]
 
     def train(self, Xtr, Ytr, Xva=None, Yva=None, Xte=None, Yte=None, total_iters=10):
         if Xva is None:
