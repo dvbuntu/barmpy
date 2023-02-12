@@ -1,7 +1,8 @@
 
 # BARMPy
 
-![Coverage](https://github.com/dvbuntu/barmpy/actions/workflows/test-barmpy.yml/badge.svg)
+![text ignored, basic tests](https://github.com/dvbuntu/barmpy/actions/workflows/test-barmpy.yml/badge.svg)
+![text ignored, docs](https://github.com/dvbuntu/barmpy/actions/workflows/pages/pages-build-deployment/badge.svg)
 
 
 ## Intro
