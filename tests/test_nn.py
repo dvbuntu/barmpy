@@ -17,7 +17,7 @@ class TestNN(unittest.TestCase):
                  -4.884004190245918])
 
     def test_train_donate_ll(self):
-        self.cyberspace[0].train(self.X,self.Y, epochs=2)
+        self.cyberspace[0].train(self.X,self.Y)
         donor = self.cyberspace[0]
         donee = self.cyberspace[1]
         donee.accept_donation(donor.num_nodes,
@@ -36,7 +36,7 @@ class TestNN(unittest.TestCase):
                                donor.model.intercepts_[1].reshape(-1),
                                rtol=1e-4, atol=1e-4)
         ll = self.cyberspace[0].log_likelihood(self.X, self.Y)
-        self.assertAlmostEqual(ll, -35.913113112395365)
+        self.assertAlmostEqual(ll, -55.17424744871593)
 
 
 if __name__ == '__main__':
