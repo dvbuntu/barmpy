@@ -17,6 +17,11 @@ SMALL = INFO.min + 1
 BIG = INFO.max - 1
 
 class NN(object):
+    '''
+    Neural Network with single hidden layer implemented with sklearn.
+
+    Includes methods to do MCMC transitions and calculations.
+    '''
     def __init__(self, num_nodes=10, weight_donor=None, l=10, lr=0.01, r=None):
         self.num_nodes = num_nodes
         # make an NN with a single hidden layer with num_nodes nodes
@@ -40,6 +45,12 @@ class NN(object):
                 intercepts_=self.model.intercepts_)
 
     def accept_donation(self, donor_num_nodes, donor_weights, donor_intercepts):
+        '''
+        Replace our weights with those of another `NN` (passed as weights).
+
+        Donor can be different size; if smaller, earlier weights in donee
+        are overwritten.
+        '''
         # a big of a workaround to create weight arrays and things
         num_nodes = self.num_nodes
         self.model._random_state = crs(self.r)
@@ -79,9 +90,16 @@ class NN(object):
         self.model.fit(X,Y)
 
     def log_prior(self, pmf=scipy.stats.poisson.logpmf):
+        '''
+        Log prior probability of the `NN`.  Assumes one distribution
+        parameter, `self.l`.
+        '''
         return pmf(self.num_nodes, self.l)
 
     def log_likelihood(self, X, Y):
+        '''
+        Log likelihood of `NN` assuming normally distributed errors.
+        '''
         # compute residuals
         yhat = self.model.predict(X)
         resid = Y - yhat
@@ -104,6 +122,10 @@ class NN(object):
 
 # total acceptable of moving from N to Np given data XY
 def A(Np, N, X, Y, q=0.5):
+    '''
+    Acceptance ratio of moving from `N` to `Np` given data and 
+    transition probability `q`
+    '''
     # disallow empty network...or does this mean kill it off entirely?
     if Np.num_nodes < 1:
         return 0
@@ -113,6 +135,11 @@ def A(Np, N, X, Y, q=0.5):
     return min(1, np.exp(num-denom))
 
 class BARN(object):
+    '''
+    Bayesian Additive Regression Networks ensemble.
+    
+    Specify and train an array of neural nets with Bayesian posterior.
+    '''
     def __init__(self, num_nets=10,
             trans_probs=[0.4, 0.6],
             trans_options=['grow', 'shrink'],
@@ -190,6 +217,9 @@ class BARN(object):
         return np.sum([N.model.predict(X) for N in self.cyberspace], axis=0)
 
     def phi_viz(self, outname='phi.png', close=True):
+        '''
+        Visualize the `phi` parameter, validation error over time
+        '''
         fig = plt.figure()
         fig.set_size_inches(4,4)
         # Plot phi results
@@ -203,6 +233,13 @@ class BARN(object):
         return fig
 
     def viz(self, outname='results.png', extra_slots=0, close=True, initial=False):
+        '''
+        Visualize results of BARN analysis.
+
+        Shows:
+            1. Plot of `Y_test` vs `Y_test_pred_initial` (optional)
+            2. Plot of `Y_test` vs `Y_test_pred_final`
+        '''
         fig, ax = plt.subplots(1,1+extra_slots+initial, squeeze=True, sharex=True,sharey=True)
         fig.set_size_inches(12+4*extra_slots,4)
         if initial:
@@ -240,6 +277,9 @@ class BARN(object):
         return fig, ax, rmseh2
 
     def batch_means(self, num_batch=20, batch_size=None, np_out='val_resid.npy', outfile='var_all.csv', mode='a', burn=None):
+        '''
+        Compute batch means variance over computed results.
+        '''
         if burn is None:
             burn = 100
         if batch_size is None:

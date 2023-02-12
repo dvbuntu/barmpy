@@ -12,7 +12,7 @@ Welcome to BARMPy's documentation!
 
    usage
    math
-   example
+   barn
 
 
 Indices and tables
