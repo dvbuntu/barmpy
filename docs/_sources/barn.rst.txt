@@ -31,7 +31,7 @@ Let's walk through a minimal example training an ensemble with BARN.  Start by g
 
    import numpy as np
    X = np.random([100,2])
-   # make a simple linear relationship
+   # make an ordinary linear relationship
    Y = X[:,0] + 2*X[:,1] + np.random.random(100)/10
 
 Now we'll initialize a `BARN` setup with 3 `NN`'s.  We'll use the default
@@ -43,7 +43,7 @@ Now we'll initialize a `BARN` setup with 3 `NN`'s.  We'll use the default
    model.setup_nets()
 
 
-Actually running the model is simple, but you can tweak the MCMC parameters to your liking.  After the specified number of MCMC iterations, your model is ready for pointwise inference by using the last ensemble in the chain.
+Actually running the model is straightforward, but you can tweak the MCMC parameters to your liking.  After the specified number of MCMC iterations, your model is ready for pointwise inference by using the last ensemble in the chain.
 
 .. code-block:: python
 

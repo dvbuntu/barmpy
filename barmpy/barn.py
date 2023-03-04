@@ -130,6 +130,8 @@ def A(Np, N, X, Y, q=0.5):
     '''
     Acceptance ratio of moving from `N` to `Np` given data and 
     transition probability `q`
+
+    Only allows for 2 moves in state transition, grow/shrink
     '''
     # disallow empty network...or does this mean kill it off entirely?
     if Np.num_nodes < 1:
@@ -148,22 +150,37 @@ class BARN(object):
     def __init__(self, num_nets=10,
             trans_probs=[0.4, 0.6],
             trans_options=['grow', 'shrink'],
-            dname='default_name'):
+            dname='default_name',
+            random_state=42):
         self.num_nets = num_nets
+        # check that transition probabilities look like list of numbers
+        try:
+            np.sum(trans_probs)
+        except TypeError as e:
+            raise TypeError(f"trans_probs needs to be a list of numbers, not {trans_probs}") from e
         # maybe should bias to shrinking to avoid just overfitting?
         # or compute acceptance resid on validation data?
+        try:
+            assert len(trans_probs) == len(trans_options)
+        except AssertionError as e:
+            raise IndexError(f"Number of probabilities in trans_probs ({len(trans_probs)}) needs to equal number of options in trans_options ({len(trans_options)})")
         self.trans_probs = trans_probs
         self.trans_options = trans_options
         self.dname = dname
+        self.random_state = random_state
 
     def setup_nets(self, l=10, lr=0.01, epochs=10):
-        self.cyberspace = [NN(1, l=l, lr=lr, epochs=epochs) for i in range(self.num_nets)]
+        self.cyberspace = [NN(1, l=l, lr=lr, epochs=epochs, r=self.random_state+i) for i in range(self.num_nets)]
 
     def train(self, Xtr, Ytr, Xva=None, Yva=None, Xte=None, Yte=None, total_iters=10):
         if Xva is None:
-            Xtr, XX, Ytr, YY = skms.train_test_split(Xtr,Ytr, test_size=0.5) # training
+            Xtr, XX, Ytr, YY = skms.train_test_split(Xtr,Ytr,
+                                test_size=0.5,
+                                random_state=self.random_state) # training
             if Xte is None:
-                Xva, Xte, Yva, Yte = skms.train_test_split(XX,YY, test_size=0.5) # valid and test
+                Xva, Xte, Yva, Yte = skms.train_test_split(XX,YY,
+                        test_size=0.5,
+                        random_state=self.random_state) # valid and test
             else:
                 Xva = XX
                 Yva = YY
