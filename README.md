@@ -7,6 +7,9 @@
 
 ![text ignored, download count](https://img.shields.io/github/downloads/dvbuntu/barmpy/total.svg)
 
+![HitCount to repo page](https://hits.dwyl.com/dvbuntu/barmpy/start-here.svg)
+
+
 ## Intro
 
 `barmpy` is the Python implementation of Baeysian Additive Regression Models, a generalization of BART, currently being researched [1].  We hope this library is useful for practictioners, enabling Bayesian architecture search and model ensembling.
