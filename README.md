@@ -5,7 +5,7 @@
 
 ![text ignored, docs](https://github.com/dvbuntu/barmpy/actions/workflows/pages/pages-build-deployment/badge.svg)
 
-[![Github All Releases](https://img.shields.io/github/downloads/dvbuntu/barmpy/total.svg)]()
+![text ignored, download count](https://img.shields.io/github/downloads/dvbuntu/barmpy/total.svg)
 
 ## Intro
 
