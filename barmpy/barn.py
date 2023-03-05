@@ -50,6 +50,9 @@ class NN(object):
                 coefs_=self.model.coefs_,
                 intercepts_=self.model.intercepts_)
 
+    def get_weights(self):
+        return (self.model.coefs_, self.model.intercepts_)
+
     def accept_donation(self, donor_num_nodes, donor_weights, donor_intercepts):
         '''
         Replace our weights with those of another `NN` (passed as weights).
@@ -321,3 +324,6 @@ class BARN(object):
         # This only saves the last iteration of full models, but that's something
         with open(outname,'wb') as f:
             pickle.dump(self.cyberspace, f)
+
+    def get_weights(self):
+        return [nn.get_weights() for nn in self.cyberspace]
