@@ -26,13 +26,11 @@ knitr::knit_engines$set(python = reticulate::eng_python)
 
 These methods are suitable for modeling challenging regression problems in data science.  In particular, BARN excels at both architecture search within the space of neural networks and adapting to a wide variety of problem types/difficulties.
 
-# Background
+# Background{#sec:back}
 
-TODO: Put some math background here, enough to be dangerous
+Without going into too much mathematical detail (for that, we recommend interested users check out our recent work [@vanboxel2022barn]), we describe some of the important considerations when using `barmpy`.  First, some historical foundations.  BARN is heavily inspired by a method called , "BART", for "Bayesian Additive Regression Trees" [@chipman2010bart].  BART is an ensemble of decision trees, trained with a fully Bayesian procedure.  It fixes the number of trees, and then fixes all but one of them temporarily, subtracting off their contribution from the result.  We then putatively mutate the final tree and evaluate how it performs on the residual.  The size of trees, distribution of their terminal node values, and accuracy of predictions all factor into a posterior probability estimate (along with priors for these components).  We compute this posterior for both the old and mutant tree, taking the ratio as the probability of accepting the new tree (which, if over 1, means we must accept it).  Repeating this process for each other tree in the ensemble completes one iteration of the algorithm.  Iterating this over many iterations ensures convergence to the stationary (i.e. fully Bayesian posterior) distribution, the final step yielding a suitable ensemble.
 
-* BART inspiration
-* fully bayesian
-* specify transition probabilities, priors
+In BARN, the process is very similar, but we replace the decision trees with single hidden layer neural networks.  This has a few implications.  Our "mutation" operation is a transition between adding or subtracting a neuron from the network.  As such, you need to specify a transition probability for each possibility.  The defaults are 60% for shrinking and 40% for growing, but 50/50 is also reasonable.  Additionally, the prior probability is restricted to the size of the network (currently, we use a flat prior for the weight values and the error term).  By default, we use a Poisson distribution where you specify the expected number of neurons.  For larger networks, set this value higher.  Note, however, that one of the advantages of ensembles is that combining weak learners can be effective at prediction and limiting overfitting.  To that end, consider making the expected number of neurons small (say $N=3$), but with relatively more networks in the ensemble.  These are among the most powerful hyperparameters to tune to improve BARN fits.
 
 # Linear With Irrelevant Features Example{#sec:linear}
 
@@ -116,4 +114,127 @@ mse_barn_te = np.mean((Yte - pred)**2)
 print(mse_barn_te) # not as good, but close
 ```
 
+# Nonlinear on single variable{#sec:nonlinear}
+
+As another example, consider a regression problem where the response variable is some nonlinear function a single input variable.  For example:
+
+$$
+y_i = \beta_0 + \beta_1 x_i + \beta_2 x_i^2 + \beta_3 \log (|x_i|+1) + \epsilon_i
+$$
+
+If we are aware of this functional relationship, then we could construct additional explanatory variables from the nonlinear components and use OLS to model the response.  But directly supplying $x$ alone would likely fail to produce an accurate model.  Let's see how this works.  First, as before, generate some data:
+
+```{python nonl_datagen, cache=F, fig.height=4}
+import sklearn.datasets as skds
+import numpy as np
+# only for printing purposes should we ignore all warnings
+import warnings
+warnings.filterwarnings("ignore")
+
+# Setup constants
+sig = 1
+random_state = 42
+rng = np.random.default_rng(random_state)
+
+# Make the data
+Xp = rng.normal(size=1000)
+X = np.stack([Xp, Xp**2, np.log(np.abs(Xp)+1)], axis=-1)
+beta = np.arange(4)+1
+eps = rng.normal(scale=sig, size=1000)
+Y = beta[0] + np.dot(X, beta[1:]) + eps
+
+# Split into training/validation/testin
+Xtr, XX, Ytr, YY = skms.train_test_split(X,Y,
+                test_size=0.5,
+                random_state=random_state) # training
+Xva, Xte, Yva, Yte = skms.train_test_split(XX,YY,
+        test_size=0.5,
+        random_state=random_state) # valid and test
+
+# plot on a single set of axes
+_ = plt.scatter(Xtr[:,0],Ytr, alpha=0.25)
+_ = plt.xlabel('X')
+_ = plt.ylabel('Y')
+_ = plt.show()
+```
+
+Now, let's see what OLS does when given all of these features vs only the X input.  As expected, only using the single input variable is insufficient for OLS, because the relationship is nonlinear.
+
+```{python nonl_ols, cache=F, fig.height=4}
+# given all variables
+ols = LR()
+_ = ols.fit(Xtr,Ytr)
+
+# given only original X
+olsx = LR()
+_ = olsx.fit(Xtr[:,:1],Ytr)
+
+# analyze results
+mse_ols_te = np.mean((Yte - ols.predict(Xte))**2)
+print(ols.coef_, mse_ols_te) # on par with known noise
+mse_olsx_te = np.mean((Yte - olsx.predict(Xte[:,:1]))**2)
+print(olsx.coef_, mse_olsx_te) # Not so good
+
+# Plot on top of data
+_ = plt.scatter(Xte[:,0],Yte, alpha=0.25)
+_ = plt.xlabel('X')
+_ = plt.ylabel('Y')
+## make grid of x points in range
+Xr1 = np.linspace(np.min(Xp), np.max(Xp), 50)
+Xr_all = np.stack([Xr1, Xr1**2, np.log(np.abs(Xr1)+1)], axis=-1)
+_ = plt.plot(Xr1, ols.predict(Xr_all), label='Full OLS')
+_ = plt.plot(Xr1, olsx.predict(Xr1.reshape([-1,1])), label='1-var OLS')
+_ = plt.legend()
+_ = plt.show()
+```
+
+Now let's try BARN, using similar parameters as we did previously.  We will only allow it to see the variable itself for a fair comparison.  Additionally, we can train a single neural network to see if the ensembling and fully bayesian properties of BARN are helpful.
+
+```{python nonl_barn, cache=F, fig.height=4}
+# create model and fit
+barn_model = BARN(num_nets=33,
+                trans_probs=[0.5,0.5],
+                random_state=42
+                )
+# l=3 sets expected number of neurons, poisson distributed
+# lr=0.1 is a somewhat high learning rate
+_ = barn_model.setup_nets(epochs=20, l=3, lr=0.1)
+_ = barn_model.train(Xtr[:,:1],Ytr, Xva[:,:1], Yva, Xte[:,:1], Yte,)
+
+# straight NN
+import sklearn.neural_network as sknn
+nn_model = sknn.MLPRegressor([50],
+                learning_rate_init=0.1,
+                random_state=random_state,
+                max_iter=20)
+_ = nn_model.fit(Xtr[:,:1],Ytr,)
+
+# analyze results
+pred = barn_model.predict(Xte[:,:1])
+mse_barn_te = np.mean((Yte - pred)**2)
+print(mse_barn_te) # not as good, but close
+pred_nn = nn_model.predict(Xte[:,:1])
+mse_nn_te = np.mean((Yte - pred_nn)**2)
+print(mse_nn_te) # comparable this time
+
+# Plot on top of data
+_ = plt.scatter(Xte[:,0],Yte, alpha=0.25)
+_ = plt.xlabel('X')
+_ = plt.ylabel('Y')
+## make grid of x points in range
+Xr1 = np.linspace(np.min(Xp), np.max(Xp), 50)
+Xr_all = np.stack([Xr1, Xr1**2, np.log(np.abs(Xr1)+1)], axis=-1)
+_ = plt.plot(Xr1, ols.predict(Xr_all), label='Full OLS')
+_ = plt.plot(Xr1, olsx.predict(Xr1.reshape([-1,1])), label='1-var OLS')
+_ = plt.plot(Xr1, barn_model.predict(Xr1.reshape([-1,1])), label='BARN')
+_ = plt.plot(Xr1, nn_model.predict(Xr1.reshape([-1,1])), label='Big NN')
+_ = plt.title("Comparison of Regression Methods on Nonlinear Problem")
+_ = plt.legend()
+_ = plt.show()
+```
+
+In this particular case, the BARN results are comparable to the full OLS results, despite having only a single variable input.  The large neural network itself is close to this as well, but it comprises many many more weights.  A 50-neuron neural net with 1 input has $1\times 50 + 50 + 50\times 1 + 1=151$ weights.  The total number of weights in BARN varies depending on the final distribution of the neural network sizes in the ensemble.  In this run it was only 66 total weights, yet it outperformed the larger neural network!  This mean that, implemented correctly, BARN can signficantly save on inference time (after paying the one-time cost of fully-Bayesian training).
+
 \newpage
+
+# References
