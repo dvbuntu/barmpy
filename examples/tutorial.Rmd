@@ -1,0 +1,119 @@
+---
+title:  '`barmpy` Tutorial'
+subtitle: 'Bayesian Additive Regression Networks'
+author: Danielle Van Boxel
+output: bookdown::pdf_document2
+bibliography: lib.bib
+toc: false
+---
+
+```{r setup, include=FALSE}
+# Change all R formatting to 4 decimals
+# From https://stackoverflow.com/a/48532968
+# Register an inline hook:
+knitr::knit_hooks$set(inline = function(x) {
+  x <- sprintf("%1.4f", x)
+  paste(x, collapse = ", ")
+})
+knitr::opts_chunk$set(echo = TRUE)
+library(reticulate)
+knitr::knit_engines$set(python = reticulate::eng_python)
+```
+
+# Welcome to BARN!
+
+`barmpy` (for Bayesian Additive Regression Models in Python) is the Python module to run various kinds of ensembles trained in a fully Bayesian manner inspired by [BART](https://arxiv.org/abs/0806.3286).  The primary (currently only) method is to use an ensemble of single hidden layer neural networks, hence, BARN, Bayesian Additive Regression Networks.
+
+These methods are suitable for modeling challenging regression problems in data science.  In particular, BARN excels at both architecture search within the space of neural networks and adapting to a wide variety of problem types/difficulties.
+
+# Background
+
+TODO: Put some math background here, enough to be dangerous
+
+* BART inspiration
+* fully bayesian
+* specify transition probabilities, priors
+
+# Linear With Irrelevant Features Example{#sec:linear}
+
+To show BARN's capabilities, consider a regression problem that purely linear except the $X$ vector includes irrelevant features.  Techniques like Ordinary Least Squares have no problem with this, but BART itself may falter [@vanboxel2022barn].  First, let's generate some data of the form:
+
+$$
+y_i = \sum_{i=1}^{2} \beta_i x_i + 0 x_9 + 0 x_{10} + \epsilon_i
+$$
+
+That is, we have 2 explanatory variables with a linear relation to the output, $y_i$.  There is some amount of noise, $\epsilon_i$, and 2 irrelevant features, $x_9$ and $x_{10}$.  We can generate data like this with `sklearn`.  While BARN can automatically divide into training/validation/testing, for clarity, let's so that manually first.  We will use 500 data points for training, 250 for validation, and 250 for final testing.
+
+```{python lin_datagen, cache=F, fig.height=4}
+import sklearn.datasets as skds
+import sklearn.model_selection as skms
+import numpy as np
+# only for printing purposes should we ignore all warnings
+import warnings
+warnings.filterwarnings("ignore")
+
+# Setup constants
+sig = 1
+random_state = 42
+
+# Make the data
+X, Y, coef = skds.make_regression(n_samples=1000, n_features=4, n_informative=2, noise=sig, random_state=random_state, coef=True)
+print(coef) # 2 zeros, 2 nz
+
+# Split into training/validation/testin
+Xtr, XX, Ytr, YY = skms.train_test_split(X,Y,
+                test_size=0.5,
+                random_state=random_state) # training
+Xva, Xte, Yva, Yte = skms.train_test_split(XX,YY,
+        test_size=0.5,
+        random_state=random_state) # valid and test
+```
+
+Let's take a look at how each variable corresponds to the data, understanding that this isn't the full picture.
+
+```{python lin_scatter, cache=F, fig.height=5}
+import pandas as pd
+import matplotlib.pyplot as plt
+
+data = pd.DataFrame(np.concatenate([Ytr.reshape((-1,1)),Xtr],axis=1),
+        columns=['Y'] + [f'X_{i+1}' for i in range(Xtr.shape[1])])
+axes = pd.plotting.scatter_matrix(data, alpha=0.1)
+_ = plt.show()
+```
+
+This makes clear there's a strong linear relationship between $Y$ and $X_4$, but we can't immediately see the other relationship.  We can quickly test how ordinary least squares (OLS) performs on this.  It should recover the true parameters reasonably closely and make accurate predictions.
+
+```{python lin_ols, cache=F, fig.height=4}
+from sklearn.linear_model import LinearRegression as LR
+
+# create model and fit
+ols = LR()
+_ = ols.fit(Xtr,Ytr)
+
+# analyze results
+mse_ols_te = np.mean((Yte - ols.predict(Xte))**2)
+print(ols.coef_, mse_ols_te) # on par with known noise
+```
+
+So OLS can definitely solve this.  Now let's see how BARN performs.  We call it in a very similar fashion to `sklearn` type models.  First we create the model object, picking a reasonable number of networks as well as transition probabilities.  Let's use 50/50 transition probabilities for this.  Then we train it, and finally, we analyze the results.
+
+```{python lin_barn, cache=F, fig.height=4}
+from barmpy.barn import BARN
+
+# create model and fit
+barn_model = BARN(num_nets=33,
+                trans_probs=[0.5,0.5],
+                random_state=42
+                )
+# l=3 sets expected number of neurons, poisson distributed
+# lr=0.1 is a somewhat high learning rate
+_ = barn_model.setup_nets(epochs=20, l=3, lr=0.1)
+_ = barn_model.train(Xtr,Ytr, Xva, Yva, Xte, Yte,)
+
+# analyze results
+pred = barn_model.predict(Xte)
+mse_barn_te = np.mean((Yte - pred)**2)
+print(mse_barn_te) # not as good, but close
+```
+
+\newpage
