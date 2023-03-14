@@ -24,7 +24,7 @@ knitr::knit_engines$set(python = reticulate::eng_python)
 
 `barmpy` (for Bayesian Additive Regression Models in Python) is the Python module to run various kinds of ensembles trained in a fully Bayesian manner inspired by [BART](https://arxiv.org/abs/0806.3286).  The primary (currently only) method is to use an ensemble of single hidden layer neural networks, hence, BARN, Bayesian Additive Regression Networks.
 
-These methods are suitable for modeling challenging regression problems in data science.  In particular, BARN excels at both architecture search within the space of neural networks and adapting to a wide variety of problem types/difficulties.
+These are suitable for modeling regression problems in data science.  In particular, BARN excels at both architecture search within the space of neural networks and adapting to a wide variety of problems.
 
 # Background{#sec:back}
 
@@ -34,13 +34,13 @@ In BARN, the process is very similar, but we replace the decision trees with sin
 
 # Linear With Irrelevant Features Example{#sec:linear}
 
-To show BARN's capabilities, consider a regression problem that purely linear except the $X$ vector includes irrelevant features.  Techniques like Ordinary Least Squares have no problem with this, but BART itself may falter [@vanboxel2022barn].  First, let's generate some data of the form:
+To show BARN's capabilities, consider a regression problem that purely linear except the $X$ vector includes irrelevant features.  Techniques like Ordinary Least Squares have no problem with this, but BART itself may falter [@vanboxel2022barn].  First, let's generate some data with a linear form (note no intercept term):
 
 $$
-y_i = \sum_{i=1}^{2} \beta_i x_i + 0 x_9 + 0 x_{10} + \epsilon_i
+y_i = \sum_{j=1}^{2} \beta_j x_j + 0 x_3 + 0 x_{4} + \epsilon_i
 $$
 
-That is, we have 2 explanatory variables with a linear relation to the output, $y_i$.  There is some amount of noise, $\epsilon_i$, and 2 irrelevant features, $x_9$ and $x_{10}$.  We can generate data like this with `sklearn`.  While BARN can automatically divide into training/validation/testing, for clarity, let's so that manually first.  We will use 500 data points for training, 250 for validation, and 250 for final testing.
+That is, we have 2 explanatory variables with a linear relation to the output, $y_i$.  There is some amount of noise, $\epsilon_i$, and 2 irrelevant features, $x_3$ and $x_{4}$.  We can generate data like this with `sklearn`.
 
 ```{python lin_datagen, cache=F, fig.height=4}
 import sklearn.datasets as skds
@@ -55,10 +55,17 @@ sig = 1
 random_state = 42
 
 # Make the data
-X, Y, coef = skds.make_regression(n_samples=1000, n_features=4, n_informative=2, noise=sig, random_state=random_state, coef=True)
-print(coef) # 2 zeros, 2 nz
+X, Y, coef = skds.make_regression(n_samples=1000, n_features=4,
+            n_informative=2, noise=sig, random_state=random_state, coef=True)
+print(coef) # 2 zeros, 2 nonzero, no intercept
+```
 
-# Split into training/validation/testin
+Because the relationship here is purely linear, each $\beta_j$ corresponds to the expected change in $y_i$ given a unit change in $x_j$ (i.e. $x_j+1$) while holding the other variables fixed.  For example, if $\beta_1=4$, then increasing $x_1$ by 2 increases the expected value of $y_i$ by 8.
+
+While BARN can automatically divide into training/validation/testing, for clarity, let's do that manually first.  We will use 500 data points for training, 250 for validation, and 250 for final testing.  This is somewhat arbitrary; a more common split with live data might be 80% training, 10% validation, and 10% testing.
+
+```{python lin_split, cache=F, fig.height=4}
+# Split into training/validation/testing
 Xtr, XX, Ytr, YY = skms.train_test_split(X,Y,
                 test_size=0.5,
                 random_state=random_state) # training
@@ -87,13 +94,22 @@ from sklearn.linear_model import LinearRegression as LR
 # create model and fit
 ols = LR()
 _ = ols.fit(Xtr,Ytr)
-
-# analyze results
-mse_ols_te = np.mean((Yte - ols.predict(Xte))**2)
-print(ols.coef_, mse_ols_te) # on par with known noise
+print(ols.coef_)
 ```
 
-So OLS can definitely solve this.  Now let's see how BARN performs.  We call it in a very similar fashion to `sklearn` type models.  First we create the model object, picking a reasonable number of networks as well as transition probabilities.  Let's use 50/50 transition probabilities for this.  Then we train it, and finally, we analyze the results.
+Now, to be statistically rigorous, we would compute significance values on these coefficients as well.  This would help us assess if a coefficient estimate is *significantly* different from zero.  It's beyond the scope of this tutorial, but the Python module, `statsmodels` (https://www.statsmodels.org/stable/index.html), handles this for a variety of linear models [@eabold2010statsmodels].
+
+Note that while we fit on the training data, we will evaluate the Mean Squared Error (MSE) on the testing data (validation data is often used for setting hyperparameters, algorithmic settings, which aren't needed for OLS).
+
+```{python lin_mse, cache=F, fig.height=4}
+# analyze results
+mse_ols_te = np.mean((Yte - ols.predict(Xte))**2)
+print(mse_ols_te) # on par with known noise
+```
+
+So the OLS parameter estimates are close to the known good values, and error is on the order of the expected noise (note in that practice, one may not known these values *a priori*).  In practice for a problem like this, one would probably stop here!  If OLS meets your needs, don't use a "fancier" method just because it exists.
+
+But let's see how BARN performs.  We call it in a very similar fashion to `sklearn` type models.  First we create the model object, picking a reasonable number of networks as well as transition probabilities.  Let's use 50/50 transition probabilities for this.  Then we train it, and finally, we analyze the results; because the "coefficients" BARN learns are the many weights of an ensemble of neural networks, we focus on just the MSE of BARN on test data as a metric.
 
 ```{python lin_barn, cache=F, fig.height=4}
 from barmpy.barn import BARN
@@ -111,10 +127,12 @@ _ = barn_model.train(Xtr,Ytr, Xva, Yva, Xte, Yte,)
 # analyze results
 pred = barn_model.predict(Xte)
 mse_barn_te = np.mean((Yte - pred)**2)
-print(mse_barn_te) # not as good, but close
+print(mse_barn_te, mse_ols_te) # note BARN note as good in this case
 ```
 
-# Nonlinear on single variable{#sec:nonlinear}
+In this particular situation, the BARN model has a slightly *higher* test MSE than the OLS model.  This isn't surprising, since the OLS model has the exact right functional form, while BARN is trying to simulate that.  
+
+# Nonlinear function of a single variable{#sec:nonlinear}
 
 As another example, consider a regression problem where the response variable is some nonlinear function a single input variable.  For example:
 
@@ -138,11 +156,20 @@ rng = np.random.default_rng(random_state)
 
 # Make the data
 Xp = rng.normal(size=1000)
+eps = rng.normal(scale=sig, size=1000)
+```
+
+These calls to `rng.normal` setup original single variable, $X'$, and the noise term, $\eps$.  Next we create a nonlinear function of $X'$ as noted above, first stacking the $X'$ components and then taking a dot product with some $\beta$ coefficients.  Finally, we add the noise term to each data point.
+
+```{python nonl_datagen2, cache=F, fig.height=4}
 X = np.stack([Xp, Xp**2, np.log(np.abs(Xp)+1)], axis=-1)
 beta = np.arange(4)+1
-eps = rng.normal(scale=sig, size=1000)
 Y = beta[0] + np.dot(X, beta[1:]) + eps
+```
 
+From here, we can split the data into training, validation, and testing, as before.  And, because this *is* a function of one variable, we can plot $Y$ vs $X'$ to visualize the output.  Here, it seems the quadratic term, $X'^2$ dominates the shape of the curve.
+
+```{python nonl_datagen3, cache=F, fig.height=4}
 # Split into training/validation/testin
 Xtr, XX, Ytr, YY = skms.train_test_split(X,Y,
                 test_size=0.5,
