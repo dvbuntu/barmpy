@@ -97,7 +97,7 @@ _ = ols.fit(Xtr,Ytr)
 print(ols.coef_)
 ```
 
-Now, to be statistically rigorous, we would compute significance values on these coefficients as well.  This would help us assess if a coefficient estimate is *significantly* different from zero.  It's beyond the scope of this tutorial, but the Python module, `statsmodels` (https://www.statsmodels.org/stable/index.html), handles this for a variety of linear models [@eabold2010statsmodels].
+Now, to be statistically rigorous, we would compute significance values on these coefficients as well.  This would help us assess if a coefficient estimate is *significantly* different from zero.  It's beyond the scope of this tutorial, but the Python module, `statsmodels` (https://www.statsmodels.org/stable/index.html), handles this for a variety of linear models [@seabold2010statsmodels].
 
 Note that while we fit on the training data, we will evaluate the Mean Squared Error (MSE) on the testing data (validation data is often used for setting hyperparameters, algorithmic settings, which aren't needed for OLS).
 
@@ -159,7 +159,7 @@ Xp = rng.normal(size=1000)
 eps = rng.normal(scale=sig, size=1000)
 ```
 
-These calls to `rng.normal` setup original single variable, $X'$, and the noise term, $\eps$.  Next we create a nonlinear function of $X'$ as noted above, first stacking the $X'$ components and then taking a dot product with some $\beta$ coefficients.  Finally, we add the noise term to each data point.
+These calls to `rng.normal` setup original single variable, $X'$, and the noise term, $\epsilon$.  Next we create a nonlinear function of $X'$ as noted above, first stacking the $X'$ components and then taking a dot product with some $\beta$ coefficients.  Finally, we add the noise term to each data point.
 
 ```{python nonl_datagen2, cache=F, fig.height=4}
 X = np.stack([Xp, Xp**2, np.log(np.abs(Xp)+1)], axis=-1)
@@ -185,7 +185,8 @@ _ = plt.ylabel('Y')
 _ = plt.show()
 ```
 
-Now, let's see what OLS does when given all of these features vs only the X input.  As expected, only using the single input variable is insufficient for OLS, because the relationship is nonlinear.
+Now, let's see what OLS does when given all of these features vs only the X input.  To do this, we build two models: the first gets to see all the transformed data, while the latter only has the single original input.
+
 
 ```{python nonl_ols, cache=F, fig.height=4}
 # given all variables
@@ -198,10 +199,14 @@ _ = olsx.fit(Xtr[:,:1],Ytr)
 
 # analyze results
 mse_ols_te = np.mean((Yte - ols.predict(Xte))**2)
-print(ols.coef_, mse_ols_te) # on par with known noise
 mse_olsx_te = np.mean((Yte - olsx.predict(Xte[:,:1]))**2)
-print(olsx.coef_, mse_olsx_te) # Not so good
 
+print(mse_ols_te, mse_olsx_te) # nonlinear model much lower error, on par with noise
+```
+
+As expected, only using the single input variable is much worse, because the relationship is nonlinear.  OLS can only model linear relationships.  If you know (or can guess) the nonlinear transformation, it may still be appropriate.  We can further see how these estimated models vary by plotting their response as a function of the original $X$.
+
+```{python nonl_ols_scat, cache=F, fig.height=4}
 # Plot on top of data
 _ = plt.scatter(Xte[:,0],Yte, alpha=0.25)
 _ = plt.xlabel('X')
@@ -215,7 +220,7 @@ _ = plt.legend()
 _ = plt.show()
 ```
 
-Now let's try BARN, using similar parameters as we did previously.  We will only allow it to see the variable itself for a fair comparison.  Additionally, we can train a single neural network to see if the ensembling and fully bayesian properties of BARN are helpful.
+Now let's try BARN, using similar parameters as we did previously.  We will only allow it to see the variable itself for a fair comparison.  Additionally, we can train a single neural network to see if the ensembling and fully bayesian properties of BARN are helpful.  As in the previous problem, we setup the BARN ensemble object, and then we train it with the provided data.
 
 ```{python nonl_barn, cache=F, fig.height=4}
 # create model and fit
@@ -235,7 +240,11 @@ nn_model = sknn.MLPRegressor([50],
                 random_state=random_state,
                 max_iter=20)
 _ = nn_model.fit(Xtr[:,:1],Ytr,)
+```
 
+By design, the BARN usage is similar to the `sklearn` usage of neural networks.  But as it has a few extra parameters to tweak, we have an extra step in the setup.  And to emphasize that the fitting process trains neural networks, we call this method `barn_model.train()`.  Now let's review the MSE of these methods.  
+
+```{python nonl_barn2, cache=F, fig.height=4}
 # analyze results
 pred = barn_model.predict(Xte[:,:1])
 mse_barn_te = np.mean((Yte - pred)**2)
@@ -243,7 +252,13 @@ print(mse_barn_te) # not as good, but close
 pred_nn = nn_model.predict(Xte[:,:1])
 mse_nn_te = np.mean((Yte - pred_nn)**2)
 print(mse_nn_te) # comparable this time
+```
 
+In this particular case, the BARN results are comparable to the full OLS results, despite having only a single variable input.  The large neural network itself is close to this as well, but it comprises many many more weights.  A 50-neuron neural net with 1 input has $1\times 50 + 50 + 50\times 1 + 1=151$ weights.  The total number of weights in BARN varies depending on the final distribution of the neural network sizes in the ensemble.  In this run it was only 66 total weights, yet it outperformed the larger neural network!  This mean that, implemented correctly, BARN can significantly save on inference time (after paying the one-time cost of fully-Bayesian training).
+
+Finally, let's add these models' predictions to the overall Y vs X graph underlaid by data.
+
+```{python nonl_barn3, cache=F, fig.height=4}
 # Plot on top of data
 _ = plt.scatter(Xte[:,0],Yte, alpha=0.25)
 _ = plt.xlabel('X')
@@ -260,7 +275,6 @@ _ = plt.legend()
 _ = plt.show()
 ```
 
-In this particular case, the BARN results are comparable to the full OLS results, despite having only a single variable input.  The large neural network itself is close to this as well, but it comprises many many more weights.  A 50-neuron neural net with 1 input has $1\times 50 + 50 + 50\times 1 + 1=151$ weights.  The total number of weights in BARN varies depending on the final distribution of the neural network sizes in the ensemble.  In this run it was only 66 total weights, yet it outperformed the larger neural network!  This mean that, implemented correctly, BARN can signficantly save on inference time (after paying the one-time cost of fully-Bayesian training).
 
 \newpage
 
