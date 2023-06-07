@@ -148,14 +148,14 @@ class TF_NN(NN):
     '''
     def __init__(self, num_nodes=10,
             weight_donor=None,
-            l=10, lr=0.01, r=None,
+            l=10, lr=0.01, r=42,
             epochs=20, x_in=None):
         self.num_nodes = num_nodes
         tf.keras.utils.set_random_seed(r) #TODO: make sure to vary when calling
         # make an NN with a single hidden layer with num_nodes nodes
         ## can set max_iter to set max_epochs
         self.model = tf.keras.Sequential()
-        self.model.add(tkl.Input(shape=(x_in,))))
+        self.model.add(tkl.Input(shape=(x_in,)))
         self.model.add(tkl.Dense(num_nodes, # hidden layer
             activation='relu',
             kernel_regularizer=tkr.L1L2(REG),
@@ -205,6 +205,7 @@ class TF_NN(NN):
             self.model.intercepts_ = [donor_intercepts[0][:num_nodes].copy(),
                                  donor_intercepts[1].copy()]
         else:
+            self.model.coefs_, self.model.intercepts_ = self.get_weights()
             self.model.coefs_[0][:,:donor_num_nodes] = donor_weights[0].copy()
             self.model.coefs_[1][:donor_num_nodes] = donor_weights[1].copy()
             self.model.intercepts_[0][:donor_num_nodes] = donor_intercepts[0].copy()
@@ -220,6 +221,8 @@ class TF_NN(NN):
 
     def train(self, X, Y):
         '''Train network from current position with given data'''
+        self.opt = tf.keras.optimizers.Adam(self.lr)
+        self.model.compile(self.opt, loss='mse')
         self.model.fit(X,Y, epochs=self.epochs)
 
 
