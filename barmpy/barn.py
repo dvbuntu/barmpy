@@ -11,10 +11,14 @@ from sklearn.utils import check_random_state as crs
 import sklearn.model_selection as skms
 import sklearn.metrics as metrics
 import pickle
+import tensorflow as tf
+import tensorflow.keras.layers as tkl
+import tensorflow.keras.regularizers as tkr
 
 INFO = np.iinfo(np.int32)
 SMALL = INFO.min + 1
 BIG = INFO.max - 1
+REG = 0.001 # regularization
 
 class NN(object):
     '''
@@ -25,8 +29,9 @@ class NN(object):
     def __init__(self, num_nodes=10,
             weight_donor=None,
             l=10, lr=0.01, r=None,
-            epochs=20):
+            epochs=20, x_in=None):
         self.num_nodes = num_nodes
+        self.x_in = x_in
         # make an NN with a single hidden layer with num_nodes nodes
         ## can set max_iter to set max_epochs
         self.model = sknn.MLPRegressor([num_nodes],
@@ -37,18 +42,21 @@ class NN(object):
         self.l = l
         self.lr = lr
         self.r = r
+        self.epochs = epochs
+        self.x_in = x_in
         if weight_donor is not None:
             # inherit the first num_nodes weights from this donor
             donor_num_nodes = weight_donor.num_nodes
-            donor_weights = weight_donor.model.coefs_
-            donor_intercepts = weight_donor.model.intercepts_
+            donor_weights, donor_intercepts = weight_donor.get_weights()
             self.accept_donation(donor_num_nodes, donor_weights, donor_intercepts)
 
     def save(self, fname):
-        params = np.array([self.num_nodes, self.l, self.lr, self.r])
+        params = np.array([self.num_nodes, self.l, self.lr, self.r,
+            self.epochs, self.x_in])
+        coefs_, intercepts_ = self.model.get_weights()
         np.savez_compressed(fname, params=params,
-                coefs_=self.model.coefs_,
-                intercepts_=self.model.intercepts_)
+                coefs_=coefs_,
+                intercepts_=intercepts_)
 
     def get_weights(self):
         return (self.model.coefs_, self.model.intercepts_)
@@ -66,6 +74,7 @@ class NN(object):
         self.model._initialize(np.zeros((1,1),dtype=donor_weights[0].dtype),
                                [donor_weights[0].shape[0], num_nodes, 1],
                                donor_weights[0].dtype)
+        # TODO: use self.model.model_.set_weights()
         if donor_num_nodes == num_nodes:
             self.model.coefs_ = [d.copy() for d in donor_weights]
             self.model.intercepts_ = [d.copy() for d in donor_intercepts]
@@ -86,7 +95,10 @@ class NN(object):
         N = NN(network['params'][0],
                l=network['params'][1],
                lr=network['params'][2],
-               r=network['params'][3])
+               r=network['params'][3],
+               epochs=network['params'][4],
+               x_in=network['params'][5]
+               )
         donor_num_nodes = N.num_nodes
         donor_weights = network['coefs_']
         donor_intercepts_ = network['intercepts_']
@@ -128,7 +140,91 @@ class NN(object):
     def __repr__(self):
         return f'NN({self.num_nodes}, l={self.l}, lr={self.lr})'
 
+class TF_NN(NN):
+    '''
+    Neural Network with single hidden layer implemented with TensorFlow.
+
+    Inherits methods to do MCMC transitions and calculations.
+    '''
+    def __init__(self, num_nodes=10,
+            weight_donor=None,
+            l=10, lr=0.01, r=None,
+            epochs=20, x_in=None):
+        self.num_nodes = num_nodes
+        tf.keras.utils.set_random_seed(r) #TODO: make sure to vary when calling
+        # make an NN with a single hidden layer with num_nodes nodes
+        ## can set max_iter to set max_epochs
+        self.model = tf.keras.Sequential()
+        self.model.add(tkl.Input(shape=(x_in,))))
+        self.model.add(tkl.Dense(num_nodes, # hidden layer
+            activation='relu',
+            kernel_regularizer=tkr.L1L2(REG),
+            bias_regularizer=tkr.L1L2(REG)))
+        self.model.add(tkl.Dense(1,
+            kernel_regularizer=tkr.L1L2(REG),
+            bias_regularizer=tkr.L1L2(REG))) # output
+        # l is poisson shape param, expected number of nodes
+        self.l = l
+        self.lr = lr
+        self.r = r
+        self.epochs = epochs
+        self.x_in = x_in
+        if weight_donor is not None:
+            # inherit the first num_nodes weights from this donor
+            donor_num_nodes = weight_donor.num_nodes
+            donor_weights, donor_intercepts = weight_donor.get_coefs_intercepts()
+            self.accept_donation(donor_num_nodes, donor_weights, donor_intercepts)
+
+    def get_weights(self):
+        W = self.model.get_weights()
+        # split up so we can handle inheritance
+        weights = W[::2]
+        intercepts = W[1::2]
+        return weights, intercepts
+
+    def accept_donation(self, donor_num_nodes, donor_weights, donor_intercepts):
+        '''
+        Replace our weights with those of another `NN` (passed as weights).
+
+        Donor can be different size; if smaller, earlier weights in donee
+        are overwritten.
+        '''
+        # a big of a workaround to create weight arrays and things
+        num_nodes = self.num_nodes
+        #self.model._random_state = crs(self.r)
+        #self.model._initialize(np.zeros((1,1),dtype=donor_weights[0].dtype),
+        #                       [donor_weights[0].shape[0], num_nodes, 1],
+        #                       donor_weights[0].dtype)
+        # TODO: use self.model.model_.set_weights()
+        if donor_num_nodes == num_nodes:
+            self.model.coefs_ = [d.copy() for d in donor_weights]
+            self.model.intercepts_ = [d.copy() for d in donor_intercepts]
+        elif donor_num_nodes > num_nodes:
+            self.model.coefs_ = [donor_weights[0][:,:num_nodes].copy(),
+                                 donor_weights[1][:num_nodes].copy()]
+            self.model.intercepts_ = [donor_intercepts[0][:num_nodes].copy(),
+                                 donor_intercepts[1].copy()]
+        else:
+            self.model.coefs_[0][:,:donor_num_nodes] = donor_weights[0].copy()
+            self.model.coefs_[1][:donor_num_nodes] = donor_weights[1].copy()
+            self.model.intercepts_[0][:donor_num_nodes] = donor_intercepts[0].copy()
+            self.model.intercepts_[1] = donor_intercepts[1].copy()
+
+        W = self.model.coefs_ + self.model.intercepts_
+        W[::2] = self.model.coefs_
+        W[1::2] = self.model.intercepts_
+        # Alternative:
+        # import itertools
+        # W = list(itertools.chain(*zip(self.model.coefs_, self.model.intercepts_)))
+        self.model.set_weights(W)
+
+    def train(self, X, Y):
+        '''Train network from current position with given data'''
+        self.model.fit(X,Y, epochs=self.epochs)
+
+
 # total acceptable of moving from N to Np given data XY
+# TODO: double check this
 def A(Np, N, X, Y, q=0.5):
     '''
     Acceptance ratio of moving from `N` to `Np` given data and 
@@ -220,6 +316,7 @@ class BARN(object):
                     Np = NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG))
                     q = self.trans_probs[0]
                 elif N.num_nodes-1 == 0:
+                    # TODO: better handle zero neuron case, don't just skip
                     continue # don't bother building empty model
                 else:
                     Np = NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG))
