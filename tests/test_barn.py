@@ -4,10 +4,14 @@ import numpy as np
 from barmpy.barn import NN, A, BARN
 
 class TestBARN(unittest.TestCase):
+    USE_TF = False
     def setUp(self):
         # NB: random_state not fully respected by sklearn
-        self.model = BARN(num_nets=10, dname='test', random_state=42)
-        self.model.setup_nets()
+        self.model = BARN(num_nets=10, dname='test',
+                random_state=42,
+                x_in=2, 
+                use_tf=self.USE_TF)
+        self.model.setup_nets(epochs=1)
         # Setup linear relationship as test data
         self.n = 1000
         self.X = np.arange(2*self.n).reshape((self.n,2))
@@ -33,14 +37,15 @@ class TestBARN(unittest.TestCase):
         # b/c they are all relative
         ## str
         try:
-            model = BARN(num_nets=10, trans_probs='ab')
+            model = BARN(num_nets=10, trans_probs='ab', x_in=2)
         except TypeError:
             pass
         # check for same number of trans probs and trans options 
         try:
             model = BARN(num_nets=10,
                     trans_probs=[0.33],
-                    trans_options=['grow','shrink'])
+                    trans_options=['grow','shrink'],
+                    x_in=2)
         except IndexError:
             pass
 
@@ -48,17 +53,19 @@ class TestBARN(unittest.TestCase):
         # should be int, but in case it's not, throw exception
         ## str
         try:
-            model = BARN(num_nets='10')
-            model.setup_nets()
+            model = BARN(num_nets='10', x_in=2)
+            model.setup_nets(epochs=1)
         except TypeError:
             pass
         ## float
         try:
-            model = BARN(num_nets=10.5)
-            model.setup_nets()
+            model = BARN(num_nets=10.5, x_in=2)
+            model.setup_nets(epochs=1)
         except TypeError:
             pass
 
+class TestBARN_TF(TestBARN):
+    USE_TF = True
 
 
 if __name__ == '__main__':

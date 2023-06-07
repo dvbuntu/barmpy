@@ -138,7 +138,10 @@ class NN(object):
         return np.log(q)
 
     def __repr__(self):
-        return f'NN({self.num_nodes}, l={self.l}, lr={self.lr})'
+        return f'NN({self.num_nodes}, l={self.l}, lr={self.lr}, x_in={self.x_in})'
+
+    def predict(self, X):
+        return np.squeeze(self.model.predict(X)) # so sklearn and TF have same shape
 
 class TF_NN(NN):
     '''
@@ -172,7 +175,7 @@ class TF_NN(NN):
         if weight_donor is not None:
             # inherit the first num_nodes weights from this donor
             donor_num_nodes = weight_donor.num_nodes
-            donor_weights, donor_intercepts = weight_donor.get_coefs_intercepts()
+            donor_weights, donor_intercepts = weight_donor.get_weights()
             self.accept_donation(donor_num_nodes, donor_weights, donor_intercepts)
 
     def get_weights(self):
@@ -195,7 +198,7 @@ class TF_NN(NN):
         #self.model._initialize(np.zeros((1,1),dtype=donor_weights[0].dtype),
         #                       [donor_weights[0].shape[0], num_nodes, 1],
         #                       donor_weights[0].dtype)
-        # TODO: use self.model.model_.set_weights()
+        # TODO: generalize this
         if donor_num_nodes == num_nodes:
             self.model.coefs_ = [d.copy() for d in donor_weights]
             self.model.intercepts_ = [d.copy() for d in donor_intercepts]
@@ -253,7 +256,9 @@ class BARN(object):
             trans_probs=[0.4, 0.6],
             trans_options=['grow', 'shrink'],
             dname='default_name',
-            random_state=42):
+            random_state=42,
+            x_in=None,
+            use_tf=False):
         self.num_nets = num_nets
         # check that transition probabilities look like list of numbers
         try:
@@ -270,9 +275,16 @@ class BARN(object):
         self.trans_options = trans_options
         self.dname = dname
         self.random_state = random_state
+        assert x_in is not None
+        self.x_in = x_in
+        if use_tf:
+            self.NN = TF_NN
+        else:
+            self.NN = NN
 
     def setup_nets(self, l=10, lr=0.01, epochs=10):
-        self.cyberspace = [NN(1, l=l, lr=lr, epochs=epochs, r=self.random_state+i) for i in range(self.num_nets)]
+        self.epochs = epochs
+        self.cyberspace = [self.NN(1, l=l, lr=lr, epochs=epochs, r=self.random_state+i, x_in=self.x_in) for i in range(self.num_nets)]
 
     def train(self, Xtr, Ytr, Xva=None, Yva=None, Xte=None, Yte=None, total_iters=10):
         if Xva is None:
@@ -292,13 +304,13 @@ class BARN(object):
             N.train(Xtr,Ytr/self.num_nets)
 
         # check initial fit
-        Yh = np.sum([N.model.predict(Xte) for N in self.cyberspace], axis=0)
+        Yh = np.sum([N.predict(Xte) for N in self.cyberspace], axis=0)
         self.Yte_init = np.copy(Yh)
 
         accepted = 0
         # setup residual array
-        S_tr = np.array([N.model.predict(Xtr) for N in self.cyberspace])
-        S_va = np.array([N.model.predict(Xva) for N in self.cyberspace])
+        S_tr = np.array([N.predict(Xtr) for N in self.cyberspace])
+        S_va = np.array([N.predict(Xva) for N in self.cyberspace])
         Rtr = Ytr - (np.sum(S_tr, axis=0) - S_tr[-1])
         Rva = Yva - (np.sum(S_va, axis=0) - S_va[-1])
         phi = np.zeros(total_iters)
@@ -316,21 +328,21 @@ class BARN(object):
                 # create proposed change
                 choice = np.random.choice(self.trans_options, p=self.trans_probs)
                 if choice == 'grow':
-                    Np = NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG))
+                    Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.x_in, epochs=self.epochs)
                     q = self.trans_probs[0]
                 elif N.num_nodes-1 == 0:
                     # TODO: better handle zero neuron case, don't just skip
                     continue # don't bother building empty model
                 else:
-                    Np = NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG))
+                    Np = self.NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.x_in, epochs=self.epochs)
                     q = self.trans_probs[1]
                 Np.train(Xtr,Rtr)
                 # determine if we should keep it
                 if np.random.random() < A(Np, N, Xva, Rva, q):
                     self.cyberspace[j] = Np
                     accepted += 1
-                    S_tr[j] = Np.model.predict(Xtr)
-                    S_va[j] = Np.model.predict(Xva)
+                    S_tr[j] = Np.predict(Xtr)
+                    S_va[j] = Np.predict(Xva)
             # overall validation error at this MCMC iteration
             phi[i] = np.sqrt(np.mean((Rva - S_va[j])**2))
         self.phi = phi
@@ -339,7 +351,7 @@ class BARN(object):
         self.Yte = Yte
 
     def predict(self, X):
-        return np.sum([N.model.predict(X) for N in self.cyberspace], axis=0)
+        return np.sum([N.predict(X) for N in self.cyberspace], axis=0)
 
     def phi_viz(self, outname='phi.png', close=True):
         '''
