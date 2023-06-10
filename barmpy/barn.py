@@ -47,6 +47,8 @@ class NN(object):
         # l is poisson shape param, expected number of nodes
         self.l = l
         self.lr = lr
+        if r is None:
+            r = int(time.time())
         self.r = r
         self.epochs = epochs
         self.x_in = x_in
