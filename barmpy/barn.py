@@ -26,10 +26,15 @@ class NN(object):
 
     Includes methods to do MCMC transitions and calculations.
     '''
-    def __init__(self, num_nodes=10,
+    def __init__(self,
+            num_nodes=10,
             weight_donor=None,
-            l=10, lr=0.01, r=None,
-            epochs=20, x_in=None):
+            l=10,
+            lr=0.01,
+            r=None,
+            epochs=20,
+            x_in=None,
+            batch_size=512):
         self.num_nodes = num_nodes
         self.x_in = x_in
         # make an NN with a single hidden layer with num_nodes nodes
@@ -38,7 +43,7 @@ class NN(object):
                 learning_rate_init=lr,
                 random_state=r,
                 max_iter=epochs,
-                batch_size=4096)
+                batch_size=batch_size)
         # l is poisson shape param, expected number of nodes
         self.l = l
         self.lr = lr
@@ -150,10 +155,15 @@ class TF_NN(NN):
 
     Inherits methods to do MCMC transitions and calculations.
     '''
-    def __init__(self, num_nodes=10,
+    def __init__(self,
+            num_nodes=10,
             weight_donor=None,
-            l=10, lr=0.01, r=42,
-            epochs=20, x_in=None):
+            l=10,
+            lr=0.01,
+            r=None,
+            epochs=20,
+            x_in=None,
+            batch_size=512):
         self.num_nodes = num_nodes
         tf.keras.utils.set_random_seed(r) #TODO: make sure to vary when calling
         # make an NN with a single hidden layer with num_nodes nodes
@@ -173,6 +183,7 @@ class TF_NN(NN):
         self.r = r
         self.epochs = epochs
         self.x_in = x_in
+        self.batch_size = batch_size
         if weight_donor is not None:
             # inherit the first num_nodes weights from this donor
             donor_num_nodes = weight_donor.num_nodes
@@ -227,7 +238,7 @@ class TF_NN(NN):
         '''Train network from current position with given data'''
         self.opt = tf.keras.optimizers.RMSprop(self.lr)
         self.model.compile(self.opt, loss='mse')
-        self.model.fit(X,Y, epochs=self.epochs, batch_size=4096)
+        self.model.fit(X,Y, epochs=self.epochs, batch_size=self.batch_size)
 
 
 # total acceptable of moving from N to Np given data XY
@@ -259,7 +270,8 @@ class BARN(object):
             dname='default_name',
             random_state=42,
             x_in=None,
-            use_tf=False):
+            use_tf=False,
+            batch_size=512):
         self.num_nets = num_nets
         # check that transition probabilities look like list of numbers
         try:
@@ -283,10 +295,11 @@ class BARN(object):
         else:
             self.NN = NN
         self.use_tf = use_tf
+        self.batch_size = batch_size
 
     def setup_nets(self, l=10, lr=0.01, epochs=10):
         self.epochs = epochs
-        self.cyberspace = [self.NN(1, l=l, lr=lr, epochs=epochs, r=self.random_state+i, x_in=self.x_in) for i in range(self.num_nets)]
+        self.cyberspace = [self.NN(1, l=l, lr=lr, epochs=epochs, r=self.random_state+i, x_in=self.x_in, batch_size=self.batch_size) for i in range(self.num_nets)]
 
     def train(self, Xtr, Ytr, Xva=None, Yva=None, Xte=None, Yte=None, total_iters=10):
         if Xva is None:
@@ -330,7 +343,7 @@ class BARN(object):
                 # create proposed change
                 choice = np.random.choice(self.trans_options, p=self.trans_probs)
                 if choice == 'grow':
-                    Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.x_in, epochs=self.epochs)
+                    Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.x_in, epochs=self.epochs, batch_size=self.batch_size)
                     q = self.trans_probs[0]
                 elif N.num_nodes-1 == 0:
                     # TODO: better handle zero neuron case, don't just skip
