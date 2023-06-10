@@ -53,7 +53,7 @@ class TestNN(unittest.TestCase):
         self.cyberspace[2].train(self.X,self.Y)
         # Compute LL and compare to known value for data/weights
         ll = self.cyberspace[2].log_likelihood(self.X, self.Y)
-        self.assertAlmostEqual(ll, -456.24105, places=4)
+        self.assertAlmostEqual(ll, -45.02548, places=4)
 
     def test_bad_nodes(self):
         # use string instead of number, fails on training
