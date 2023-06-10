@@ -37,7 +37,8 @@ class NN(object):
         self.model = sknn.MLPRegressor([num_nodes],
                 learning_rate_init=lr,
                 random_state=r,
-                max_iter=epochs)
+                max_iter=epochs,
+                batch_size=4096)
         # l is poisson shape param, expected number of nodes
         self.l = l
         self.lr = lr
@@ -121,7 +122,7 @@ class NN(object):
         Log likelihood of `NN` assuming normally distributed errors.
         '''
         # compute residuals
-        yhat = self.model.predict(X)
+        yhat = np.squeeze(self.model.predict(X))
         resid = Y - yhat
         # compute stddev of these
         std = np.std(resid) # maybe use std prior here?
@@ -224,9 +225,9 @@ class TF_NN(NN):
 
     def train(self, X, Y):
         '''Train network from current position with given data'''
-        self.opt = tf.keras.optimizers.Adam(self.lr)
+        self.opt = tf.keras.optimizers.RMSprop(self.lr)
         self.model.compile(self.opt, loss='mse')
-        self.model.fit(X,Y, epochs=self.epochs)
+        self.model.fit(X,Y, epochs=self.epochs, batch_size=4096)
 
 
 # total acceptable of moving from N to Np given data XY
@@ -281,6 +282,7 @@ class BARN(object):
             self.NN = TF_NN
         else:
             self.NN = NN
+        self.use_tf = use_tf
 
     def setup_nets(self, l=10, lr=0.01, epochs=10):
         self.epochs = epochs
@@ -434,8 +436,14 @@ class BARN(object):
 
     def save(self, outname):
         # This only saves the last iteration of full models, but that's something
-        with open(outname,'wb') as f:
-            pickle.dump(self.cyberspace, f)
+        if self.use_tf:
+            # convert to sklearn and save? Don't actually have a load method yet!
+            # could reconstruct from just weights if needed
+            with open(outname,'wb') as f:
+                pickle.dump(self.get_weights(), f)
+        else:
+            with open(outname,'wb') as f:
+                pickle.dump(self.cyberspace, f)
 
     def get_weights(self):
         return [nn.get_weights() for nn in self.cyberspace]
