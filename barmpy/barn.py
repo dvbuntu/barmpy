@@ -39,11 +39,17 @@ class NN(object):
         self.x_in = x_in
         # make an NN with a single hidden layer with num_nodes nodes
         ## can set max_iter to set max_epochs
+        if num_nodes < 10:
+            solver = 'lbfgs'
+        else:
+            solver = 'adam'
         self.model = sknn.MLPRegressor([num_nodes],
                 learning_rate_init=lr,
                 random_state=r,
                 max_iter=epochs,
-                batch_size=batch_size)
+                batch_size=batch_size,
+                warm_start=True,
+                solver=solver)
         # l is poisson shape param, expected number of nodes
         self.l = l
         self.lr = lr
