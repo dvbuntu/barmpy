@@ -31,7 +31,7 @@ class NN(object):
             weight_donor=None,
             l=10,
             lr=0.01,
-            r=None,
+            r=42,
             epochs=20,
             x_in=None,
             batch_size=512):
@@ -162,7 +162,7 @@ class TF_NN(NN):
             weight_donor=None,
             l=10,
             lr=0.01,
-            r=None,
+            r=42,
             epochs=20,
             x_in=None,
             batch_size=512):
