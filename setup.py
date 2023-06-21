@@ -17,7 +17,6 @@ setup(
         'pandas',
         'scipy',
         'scikit-learn',
-        'tensorflow',
         'tqdm',
     ]
 )
