@@ -11,9 +11,13 @@ from sklearn.utils import check_random_state as crs
 import sklearn.model_selection as skms
 import sklearn.metrics as metrics
 import pickle
-import tensorflow as tf
-import tensorflow.keras.layers as tkl
-import tensorflow.keras.regularizers as tkr
+HAVE_TF = True
+try:
+    import tensorflow as tf
+    import tensorflow.keras.layers as tkl
+    import tensorflow.keras.regularizers as tkr
+except:
+    HAVE_TF = False
 
 INFO = np.iinfo(np.int32)
 SMALL = INFO.min + 1
@@ -298,6 +302,7 @@ class BARN(object):
         self.random_state = random_state
         assert x_in is not None
         self.x_in = x_in
+        use_tf = use_tf & HAVE_TF
         if use_tf:
             self.NN = TF_NN
         else:
