@@ -34,22 +34,25 @@ class NN(object):
             r=42,
             epochs=20,
             x_in=None,
-            batch_size=512):
+            batch_size=512,
+            solver=None):
         self.num_nodes = num_nodes
         self.x_in = x_in
         # make an NN with a single hidden layer with num_nodes nodes
         ## can set max_iter to set max_epochs
-        if num_nodes < 10:
-            solver = 'lbfgs'
-        else:
-            solver = 'adam'
+        if solver is None:
+            if num_nodes < 10:
+                solver = 'lbfgs'
+            else:
+                solver = 'adam'
         self.model = sknn.MLPRegressor([num_nodes],
                 learning_rate_init=lr,
                 random_state=r,
                 max_iter=epochs,
                 batch_size=batch_size,
                 warm_start=True,
-                solver=solver)
+                solver=solver,
+                tol = 1e-3) # TODO: scale with output
         # l is poisson shape param, expected number of nodes
         self.l = l
         self.lr = lr
@@ -82,7 +85,7 @@ class NN(object):
         Donor can be different size; if smaller, earlier weights in donee
         are overwritten.
         '''
-        # a big of a workaround to create weight arrays and things
+        # a bit of a workaround to create weight arrays and things
         num_nodes = self.num_nodes
         self.model._random_state = crs(self.r)
         self.model._initialize(np.zeros((1,1),dtype=donor_weights[0].dtype),
@@ -171,7 +174,8 @@ class TF_NN(NN):
             r=42,
             epochs=20,
             x_in=None,
-            batch_size=512):
+            batch_size=512,
+            solver=None):
         self.num_nodes = num_nodes
         tf.keras.utils.set_random_seed(r) #TODO: make sure to vary when calling
         # make an NN with a single hidden layer with num_nodes nodes
@@ -279,7 +283,8 @@ class BARN(object):
             random_state=42,
             x_in=None,
             use_tf=False,
-            batch_size=512):
+            batch_size=512,
+            solver=None):
         self.num_nets = num_nets
         # check that transition probabilities look like list of numbers
         try:
@@ -304,10 +309,11 @@ class BARN(object):
             self.NN = NN
         self.use_tf = use_tf
         self.batch_size = batch_size
+        self.solver = solver
 
     def setup_nets(self, l=10, lr=0.01, epochs=10):
         self.epochs = epochs
-        self.cyberspace = [self.NN(1, l=l, lr=lr, epochs=epochs, r=self.random_state+i, x_in=self.x_in, batch_size=self.batch_size) for i in range(self.num_nets)]
+        self.cyberspace = [self.NN(1, l=l, lr=lr, epochs=epochs, r=self.random_state+i, x_in=self.x_in, batch_size=self.batch_size, solver=self.solver) for i in range(self.num_nets)]
 
     def train(self, Xtr, Ytr, Xva=None, Yva=None, Xte=None, Yte=None, total_iters=10):
         if Xva is None:
@@ -351,13 +357,13 @@ class BARN(object):
                 # create proposed change
                 choice = np.random.choice(self.trans_options, p=self.trans_probs)
                 if choice == 'grow':
-                    Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.x_in, epochs=self.epochs, batch_size=self.batch_size)
+                    Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.x_in, epochs=self.epochs, batch_size=self.batch_size, solver=self.solver)
                     q = self.trans_probs[0]
                 elif N.num_nodes-1 == 0:
                     # TODO: better handle zero neuron case, don't just skip
                     continue # don't bother building empty model
                 else:
-                    Np = self.NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.x_in, epochs=self.epochs)
+                    Np = self.NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.x_in, epochs=self.epochs, solver=self.solver)
                     q = self.trans_probs[1]
                 Np.train(Xtr,Rtr)
                 # determine if we should keep it
@@ -368,6 +374,7 @@ class BARN(object):
                     S_va[j] = Np.predict(Xva)
             # overall validation error at this MCMC iteration
             phi[i] = np.sqrt(np.mean((Rva - S_va[j])**2))
+            # check if worth stopping early?
         self.phi = phi
         self.accepted = accepted
         self.Xte = Xte
