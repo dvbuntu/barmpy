@@ -164,97 +164,98 @@ class NN(object):
     def predict(self, X):
         return np.squeeze(self.model.predict(X)) # so sklearn and TF have same shape
 
-class TF_NN(NN):
-    '''
-    Neural Network with single hidden layer implemented with TensorFlow.
-
-    Inherits methods to do MCMC transitions and calculations.
-    '''
-    def __init__(self,
-            num_nodes=10,
-            weight_donor=None,
-            l=10,
-            lr=0.01,
-            r=42,
-            epochs=20,
-            x_in=None,
-            batch_size=512,
-            solver=None):
-        self.num_nodes = num_nodes
-        tf.keras.utils.set_random_seed(r) #TODO: make sure to vary when calling
-        # make an NN with a single hidden layer with num_nodes nodes
-        ## can set max_iter to set max_epochs
-        self.model = tf.keras.Sequential()
-        self.model.add(tkl.Input(shape=(x_in,)))
-        self.model.add(tkl.Dense(num_nodes, # hidden layer
-            activation='relu',
-            kernel_regularizer=tkr.L1L2(REG),
-            bias_regularizer=tkr.L1L2(REG)))
-        self.model.add(tkl.Dense(1,
-            kernel_regularizer=tkr.L1L2(REG),
-            bias_regularizer=tkr.L1L2(REG))) # output
-        # l is poisson shape param, expected number of nodes
-        self.l = l
-        self.lr = lr
-        self.r = r
-        self.epochs = epochs
-        self.x_in = x_in
-        self.batch_size = batch_size
-        if weight_donor is not None:
-            # inherit the first num_nodes weights from this donor
-            donor_num_nodes = weight_donor.num_nodes
-            donor_weights, donor_intercepts = weight_donor.get_weights()
-            self.accept_donation(donor_num_nodes, donor_weights, donor_intercepts)
-
-    def get_weights(self):
-        W = self.model.get_weights()
-        # split up so we can handle inheritance
-        weights = W[::2]
-        intercepts = W[1::2]
-        return weights, intercepts
-
-    def accept_donation(self, donor_num_nodes, donor_weights, donor_intercepts):
+if HAVE_TF:
+    class TF_NN(NN):
         '''
-        Replace our weights with those of another `NN` (passed as weights).
+        Neural Network with single hidden layer implemented with TensorFlow.
 
-        Donor can be different size; if smaller, earlier weights in donee
-        are overwritten.
+        Inherits methods to do MCMC transitions and calculations.
         '''
-        # a big of a workaround to create weight arrays and things
-        num_nodes = self.num_nodes
-        #self.model._random_state = crs(self.r)
-        #self.model._initialize(np.zeros((1,1),dtype=donor_weights[0].dtype),
-        #                       [donor_weights[0].shape[0], num_nodes, 1],
-        #                       donor_weights[0].dtype)
-        # TODO: generalize this
-        if donor_num_nodes == num_nodes:
-            self.model.coefs_ = [d.copy() for d in donor_weights]
-            self.model.intercepts_ = [d.copy() for d in donor_intercepts]
-        elif donor_num_nodes > num_nodes:
-            self.model.coefs_ = [donor_weights[0][:,:num_nodes].copy(),
-                                 donor_weights[1][:num_nodes].copy()]
-            self.model.intercepts_ = [donor_intercepts[0][:num_nodes].copy(),
-                                 donor_intercepts[1].copy()]
-        else:
-            self.model.coefs_, self.model.intercepts_ = self.get_weights()
-            self.model.coefs_[0][:,:donor_num_nodes] = donor_weights[0].copy()
-            self.model.coefs_[1][:donor_num_nodes] = donor_weights[1].copy()
-            self.model.intercepts_[0][:donor_num_nodes] = donor_intercepts[0].copy()
-            self.model.intercepts_[1] = donor_intercepts[1].copy()
+        def __init__(self,
+                num_nodes=10,
+                weight_donor=None,
+                l=10,
+                lr=0.01,
+                r=42,
+                epochs=20,
+                x_in=None,
+                batch_size=512,
+                solver=None):
+            self.num_nodes = num_nodes
+            tf.keras.utils.set_random_seed(r) #TODO: make sure to vary when calling
+            # make an NN with a single hidden layer with num_nodes nodes
+            ## can set max_iter to set max_epochs
+            self.model = tf.keras.Sequential()
+            self.model.add(tkl.Input(shape=(x_in,)))
+            self.model.add(tkl.Dense(num_nodes, # hidden layer
+                activation='relu',
+                kernel_regularizer=tkr.L1L2(REG),
+                bias_regularizer=tkr.L1L2(REG)))
+            self.model.add(tkl.Dense(1,
+                kernel_regularizer=tkr.L1L2(REG),
+                bias_regularizer=tkr.L1L2(REG))) # output
+            # l is poisson shape param, expected number of nodes
+            self.l = l
+            self.lr = lr
+            self.r = r
+            self.epochs = epochs
+            self.x_in = x_in
+            self.batch_size = batch_size
+            if weight_donor is not None:
+                # inherit the first num_nodes weights from this donor
+                donor_num_nodes = weight_donor.num_nodes
+                donor_weights, donor_intercepts = weight_donor.get_weights()
+                self.accept_donation(donor_num_nodes, donor_weights, donor_intercepts)
 
-        W = self.model.coefs_ + self.model.intercepts_
-        W[::2] = self.model.coefs_
-        W[1::2] = self.model.intercepts_
-        # Alternative:
-        # import itertools
-        # W = list(itertools.chain(*zip(self.model.coefs_, self.model.intercepts_)))
-        self.model.set_weights(W)
+        def get_weights(self):
+            W = self.model.get_weights()
+            # split up so we can handle inheritance
+            weights = W[::2]
+            intercepts = W[1::2]
+            return weights, intercepts
 
-    def train(self, X, Y):
-        '''Train network from current position with given data'''
-        self.opt = tf.keras.optimizers.RMSprop(self.lr)
-        self.model.compile(self.opt, loss='mse')
-        self.model.fit(X,Y, epochs=self.epochs, batch_size=self.batch_size)
+        def accept_donation(self, donor_num_nodes, donor_weights, donor_intercepts):
+            '''
+            Replace our weights with those of another `NN` (passed as weights).
+
+            Donor can be different size; if smaller, earlier weights in donee
+            are overwritten.
+            '''
+            # a big of a workaround to create weight arrays and things
+            num_nodes = self.num_nodes
+            #self.model._random_state = crs(self.r)
+            #self.model._initialize(np.zeros((1,1),dtype=donor_weights[0].dtype),
+            #                       [donor_weights[0].shape[0], num_nodes, 1],
+            #                       donor_weights[0].dtype)
+            # TODO: generalize this
+            if donor_num_nodes == num_nodes:
+                self.model.coefs_ = [d.copy() for d in donor_weights]
+                self.model.intercepts_ = [d.copy() for d in donor_intercepts]
+            elif donor_num_nodes > num_nodes:
+                self.model.coefs_ = [donor_weights[0][:,:num_nodes].copy(),
+                                     donor_weights[1][:num_nodes].copy()]
+                self.model.intercepts_ = [donor_intercepts[0][:num_nodes].copy(),
+                                     donor_intercepts[1].copy()]
+            else:
+                self.model.coefs_, self.model.intercepts_ = self.get_weights()
+                self.model.coefs_[0][:,:donor_num_nodes] = donor_weights[0].copy()
+                self.model.coefs_[1][:donor_num_nodes] = donor_weights[1].copy()
+                self.model.intercepts_[0][:donor_num_nodes] = donor_intercepts[0].copy()
+                self.model.intercepts_[1] = donor_intercepts[1].copy()
+
+            W = self.model.coefs_ + self.model.intercepts_
+            W[::2] = self.model.coefs_
+            W[1::2] = self.model.intercepts_
+            # Alternative:
+            # import itertools
+            # W = list(itertools.chain(*zip(self.model.coefs_, self.model.intercepts_)))
+            self.model.set_weights(W)
+
+        def train(self, X, Y):
+            '''Train network from current position with given data'''
+            self.opt = tf.keras.optimizers.RMSprop(self.lr)
+            self.model.compile(self.opt, loss='mse')
+            self.model.fit(X,Y, epochs=self.epochs, batch_size=self.batch_size)
 
 
 # total acceptable of moving from N to Np given data XY

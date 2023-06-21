@@ -2,6 +2,8 @@ import unittest
 import numpy as np
 
 from barmpy.barn import NN, A, BARN
+import warnings
+warnings.filterwarnings("ignore")
 
 class TestBARN(unittest.TestCase):
     USE_TF = False

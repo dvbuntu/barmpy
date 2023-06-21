@@ -2,6 +2,8 @@ import unittest
 import numpy as np
 
 from barmpy.barn import TF_NN as NN
+import warnings
+warnings.filterwarnings("ignore")
 
 class TestNN(unittest.TestCase):
     def setUp(self):
