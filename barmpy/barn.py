@@ -11,6 +11,7 @@ from sklearn.utils import check_random_state as crs
 import sklearn.model_selection as skms
 import sklearn.metrics as metrics
 import pickle
+import warnings
 HAVE_TF = True
 try:
     import tensorflow as tf
@@ -256,6 +257,9 @@ if HAVE_TF:
             self.opt = tf.keras.optimizers.RMSprop(self.lr)
             self.model.compile(self.opt, loss='mse')
             self.model.fit(X,Y, epochs=self.epochs, batch_size=self.batch_size)
+else:
+    warnings.warn('Unable to use Tensorflow, only sklearn backend available')
+    TF_NN = NN
 
 
 # total acceptable of moving from N to Np given data XY
