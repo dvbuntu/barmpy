@@ -279,7 +279,7 @@ def A(Np, N, X, Y, q=0.5):
     # assumes only 2 inverse types of transition
     return min(1, np.exp(num-denom))
 
-class BARN(object):
+class BARN(BaseEstimator, RegressorMixin):
     '''
     Bayesian Additive Regression Networks ensemble.
     
@@ -290,10 +290,15 @@ class BARN(object):
             trans_options=['grow', 'shrink'],
             dname='default_name',
             random_state=42,
-            x_in=None,
             use_tf=False,
             batch_size=512,
-            solver=None):
+            solver=None,
+            l=10,
+            lr=0.01,
+            epochs=10,
+            n_iter=10,
+            test_size=0.5,
+            warm_start=True):
         self.num_nets = num_nets
         # check that transition probabilities look like list of numbers
         try:
@@ -310,8 +315,6 @@ class BARN(object):
         self.trans_options = trans_options
         self.dname = dname
         self.random_state = random_state
-        assert x_in is not None
-        self.x_in = x_in
         use_tf = use_tf & HAVE_TF
         if use_tf:
             self.NN = TF_NN
@@ -320,46 +323,64 @@ class BARN(object):
         self.use_tf = use_tf
         self.batch_size = batch_size
         self.solver = solver
-
-    def setup_nets(self, l=10, lr=0.01, epochs=10):
         self.epochs = epochs
-        self.cyberspace = [self.NN(1, l=l, lr=lr, epochs=epochs, r=self.random_state+i, x_in=self.x_in, batch_size=self.batch_size, solver=self.solver) for i in range(self.num_nets)]
+        self.n_iter = n_iter
+        self.test_size = test_size
+        self.initialized=False
+        self.warm_start=warm_start
 
-    def train(self, Xtr, Ytr, Xva=None, Yva=None, Xte=None, Yte=None, total_iters=10):
-        if Xva is None:
+    def setup_nets(self, n_features_in_=None):
+        if n_features_in_ is None:
+            n_features_in_ = self.n_features_in_
+        self.cyberspace = [self.NN(1, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=self.n_features_in_, batch_size=self.batch_size, solver=self.solver) for i in range(self.num_nets)]
+        self.initialized=True
+
+    def fit(self, X, Y, Xva=None, Yva=None, Xte=None, Yte=None, n_iter=None):
+        if not self.initialized or not self.warm_start:
+            self.n_features_in_ = X.shape[1]
+            self.setup_nets()
+        Xtr = X
+        Ytr = Y
+        if n_iter is None:
+            n_iter = self.n_iter
+
+        if Xva is None and self.test_size > 0:
             Xtr, XX, Ytr, YY = skms.train_test_split(Xtr,Ytr,
-                                test_size=0.5,
+                                test_size=self.test_size,
                                 random_state=self.random_state) # training
-            if Xte is None:
-                Xva, Xte, Yva, Yte = skms.train_test_split(XX,YY,
-                        test_size=0.5,
-                        random_state=self.random_state) # valid and test
-            else:
-                Xva = XX
-                Yva = YY
+            #if Xte is None:
+            #    Xva, Xte, Yva, Yte = skms.train_test_split(XX,YY,
+            #            test_size=self.test_size,
+            #            random_state=self.random_state) # valid and test
+            #else:
+            Xva = XX
+            Yva = YY
 
         # initialize fit as though all get equal share of Y
         for j,N in enumerate(self.cyberspace):
             N.train(Xtr,Ytr/self.num_nets)
 
         # check initial fit
-        Yh = np.sum([N.predict(Xte) for N in self.cyberspace], axis=0)
-        self.Yte_init = np.copy(Yh)
+        if Xte:
+            Yh = np.sum([N.predict(Xte) for N in self.cyberspace], axis=0)
+            self.Yte_init = np.copy(Yh)
 
         accepted = 0
         # setup residual array
         S_tr = np.array([N.predict(Xtr) for N in self.cyberspace])
-        S_va = np.array([N.predict(Xva) for N in self.cyberspace])
         Rtr = Ytr - (np.sum(S_tr, axis=0) - S_tr[-1])
-        Rva = Yva - (np.sum(S_va, axis=0) - S_va[-1])
-        phi = np.zeros(total_iters)
-        for i in tqdm(range(total_iters)):
+        if Xva:
+            S_va = np.array([N.predict(Xva) for N in self.cyberspace])
+            Rva = Yva - (np.sum(S_va, axis=0) - S_va[-1])
+        phi = np.zeros(n_iter)
+        for i in tqdm(range(n_iter)):
             # gibbs sample over the nets
             for j in range(self.num_nets):
                 # compute resid against other nets
                 ## Use cached these results, add back most recent and remove current
                 ## TODO: double check this is correct
-                Rva = Rva - S_va[j-1] + S_va[j]
+                if Xva:
+                    Rva = Rva - S_va[j-1] + S_va[j]
                 Rtr = Rtr - S_tr[j-1] + S_tr[j]
 
                 # grab current net in this position
@@ -377,18 +398,34 @@ class BARN(object):
                     q = self.trans_probs[1]
                 Np.train(Xtr,Rtr)
                 # determine if we should keep it
-                if np.random.random() < A(Np, N, Xva, Rva, q):
+                if Xva:
+                    Xcomp = Xva
+                    Rcomp = Rva
+                else:
+                    Xcomp = Xtr
+                    Rcomp = Rtr
+                if np.random.random() < A(Np, N, Xcomp, Rcomp, q):
                     self.cyberspace[j] = Np
                     accepted += 1
                     S_tr[j] = Np.predict(Xtr)
-                    S_va[j] = Np.predict(Xva)
+                    if Xva:
+                        S_va[j] = Np.predict(Xva)
+            if Xva:
+                Rphi = Rva
+                Sphi = S_va
+            else:
+                Rphi = Rtr
+                Sphi = S_tr
             # overall validation error at this MCMC iteration
-            phi[i] = np.sqrt(np.mean((Rva - S_va[j])**2))
+            phi[i] = np.sqrt(np.mean((Rphi - S_phi[j])**2))
+
             # check if worth stopping early?
         self.phi = phi
         self.accepted = accepted
-        self.Xte = Xte
-        self.Yte = Yte
+        if Xte:
+            self.Xte = Xte
+            self.Yte = Yte
+        return self
 
     def predict(self, X):
         return np.sum([N.predict(X) for N in self.cyberspace], axis=0)
