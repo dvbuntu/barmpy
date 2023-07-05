@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats
 # use sklearn for now, could upgrade to keras later if we want
+from sklearn.base import BaseEstimator, RegressorMixin
 import sklearn.neural_network as sknn
 from sklearn.utils import check_random_state as crs
 import sklearn.model_selection as skms
@@ -182,6 +183,7 @@ if HAVE_TF:
                 x_in=None,
                 batch_size=512,
                 solver=None):
+            assert x_in is not None
             self.num_nodes = num_nodes
             tf.keras.utils.set_random_seed(r) #TODO: make sure to vary when calling
             # make an NN with a single hidden layer with num_nodes nodes
@@ -298,7 +300,8 @@ class BARN(BaseEstimator, RegressorMixin):
             epochs=10,
             n_iter=10,
             test_size=0.5,
-            warm_start=True):
+            warm_start=True,
+            n_features_in_=None):
         self.num_nets = num_nets
         # check that transition probabilities look like list of numbers
         try:
@@ -323,16 +326,21 @@ class BARN(BaseEstimator, RegressorMixin):
         self.use_tf = use_tf
         self.batch_size = batch_size
         self.solver = solver
+        self.l = l
+        self.lr = lr
         self.epochs = epochs
         self.n_iter = n_iter
         self.test_size = test_size
         self.initialized=False
         self.warm_start=warm_start
+        self.n_features_in_ = n_features_in_
 
     def setup_nets(self, n_features_in_=None):
         if n_features_in_ is None:
             n_features_in_ = self.n_features_in_
-        self.cyberspace = [self.NN(1, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=self.n_features_in_, batch_size=self.batch_size, solver=self.solver) for i in range(self.num_nets)]
+        elif self.n_features_in_ is None:
+            self.n_features_in_ = n_features_in_
+        self.cyberspace = [self.NN(1, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=n_features_in_, batch_size=self.batch_size, solver=self.solver) for i in range(self.num_nets)]
         self.initialized=True
 
     def fit(self, X, Y, Xva=None, Yva=None, Xte=None, Yte=None, n_iter=None):
@@ -369,7 +377,7 @@ class BARN(BaseEstimator, RegressorMixin):
         # setup residual array
         S_tr = np.array([N.predict(Xtr) for N in self.cyberspace])
         Rtr = Ytr - (np.sum(S_tr, axis=0) - S_tr[-1])
-        if Xva:
+        if Xva is not None:
             S_va = np.array([N.predict(Xva) for N in self.cyberspace])
             Rva = Yva - (np.sum(S_va, axis=0) - S_va[-1])
         phi = np.zeros(n_iter)
@@ -379,7 +387,7 @@ class BARN(BaseEstimator, RegressorMixin):
                 # compute resid against other nets
                 ## Use cached these results, add back most recent and remove current
                 ## TODO: double check this is correct
-                if Xva:
+                if Xva is not None:
                     Rva = Rva - S_va[j-1] + S_va[j]
                 Rtr = Rtr - S_tr[j-1] + S_tr[j]
 
@@ -388,17 +396,17 @@ class BARN(BaseEstimator, RegressorMixin):
                 # create proposed change
                 choice = np.random.choice(self.trans_options, p=self.trans_probs)
                 if choice == 'grow':
-                    Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.x_in, epochs=self.epochs, batch_size=self.batch_size, solver=self.solver)
+                    Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, batch_size=self.batch_size, solver=self.solver)
                     q = self.trans_probs[0]
                 elif N.num_nodes-1 == 0:
                     # TODO: better handle zero neuron case, don't just skip
                     continue # don't bother building empty model
                 else:
-                    Np = self.NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.x_in, epochs=self.epochs, solver=self.solver)
+                    Np = self.NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, solver=self.solver)
                     q = self.trans_probs[1]
                 Np.train(Xtr,Rtr)
                 # determine if we should keep it
-                if Xva:
+                if Xva is not None:
                     Xcomp = Xva
                     Rcomp = Rva
                 else:
@@ -408,14 +416,14 @@ class BARN(BaseEstimator, RegressorMixin):
                     self.cyberspace[j] = Np
                     accepted += 1
                     S_tr[j] = Np.predict(Xtr)
-                    if Xva:
+                    if Xva is not None:
                         S_va[j] = Np.predict(Xva)
-            if Xva:
+            if Xva is not None:
                 Rphi = Rva
-                Sphi = S_va
+                S_phi = S_va
             else:
                 Rphi = Rtr
-                Sphi = S_tr
+                S_phi = S_tr
             # overall validation error at this MCMC iteration
             phi[i] = np.sqrt(np.mean((Rphi - S_phi[j])**2))
 
