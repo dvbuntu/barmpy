@@ -369,7 +369,7 @@ class BARN(BaseEstimator, RegressorMixin):
             N.train(Xtr,Ytr/self.num_nets)
 
         # check initial fit
-        if Xte:
+        if Xte is not None:
             Yh = np.sum([N.predict(Xte) for N in self.cyberspace], axis=0)
             self.Yte_init = np.copy(Yh)
 
@@ -430,7 +430,7 @@ class BARN(BaseEstimator, RegressorMixin):
             # check if worth stopping early?
         self.phi = phi
         self.accepted = accepted
-        if Xte:
+        if Xte is not None:
             self.Xte = Xte
             self.Yte = Yte
         return self
