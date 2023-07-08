@@ -51,9 +51,61 @@ Actually running the model is straightforward, but you can tweak the MCMC parame
    Yhat = model.predict(X)
    print((Y-Yhat)**2/np.std(Y)) # relative error
 
+CV Tuning Example
+~~~~~~~~~~~~~~~~~
+
+BARN is implemented as an `sklearn`_ class, meaning we can use standard `sklearn`_ methods like `GridSearchCV` to tune the hyperparameters for the best possible result.  This does take considerably more processing power to test the various parameter configurations, so be mindful when considering the number of possible hyperparameter values.
+
+Much like `BART`_, we apply cross-validated hyperparameter tuning to set the priors (i.e. the expected number of neurons in a network, `l`).  But as with BART, we do not seek an *exact* match, only something that generally agrees with the data.  Below is a short series of examples using various `sklearn` approaches.
+
+.. code-block:: python
+
+   from sklearn import datasets
+   from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+   from barmpy.barn import BARN
+   db = datasets.load_diabetes()
+   scoring = 'neg_root_mean_squared_error'
+
+   # exhaustive grid search
+   ## first make prototype with fixed parameters
+   bmodel = BARN(num_nets=10,
+             random_state=0,
+             warm_start=True,
+             solver='lbfgs')
+   ## declare parameters to exhaust over
+   parameters = {'l': (1,2,3)}
+   barncv = GridSearchCV(bmodel, parameters,
+                   refit=True, verbose=4,
+                   scoring=scoring)
+   barncv.fit(db.data, db.target)
+   print(barncv.best_params_)
+
+   # randomized search with distributions
+   from sklearn.model_selection import RandomizedSearchCV
+   from scipy.stats import poisson
+   ## first make prototype with fixed parameters
+   bmodel = BARN(num_nets=10,
+             random_state=0,
+             warm_start=True,
+             solver='lbfgs')
+   ## declare parameters and distributions
+   parameters = {'l': poisson(mu=2)}
+   barncv = RandomizedSearchCV(bmodel, parameters,
+                   refit=True, verbose=4,
+                   scoring=scoring, n_iter=3)
+   barncv.fit(db.data, db.target)
+   print(barncv.best_params_)
+
+In particular, note the need to set the `scoring = 'neg_root_mean_squared_error'`, which is what we recommend for default regression problems.  You can find more scoring options at the `sklearn.model_selection`_ page.
+
+Also, when using a method like `RandomizedSearchCV`, be careful to supply appropriate distributions.  Here, `l` takes discrete values, so we specify a discrete Poisson probability distribution to sample from.  Note, however, that this distribution is *not* the distribution BARN uses for internal MCMC transitions.  This distribution is only for CV sampling the prior parameters.
+
 Coming Soon
 ~~~~~~~~~~~
 
 * Visualization example
 * Tweaking MCMC parameters
-* Hyperparameter tuning with cross-validation
+
+.. _sklearn: https://scikit-learn.org/
+.. _sklearn.model_selection: https://scikit-learn.org/stable/modules/classes.html#module-sklearn.model_selection
+.. _BART: https://arxiv.org/abs/0806.3286
