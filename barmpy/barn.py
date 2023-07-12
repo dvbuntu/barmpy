@@ -301,7 +301,8 @@ class BARN(BaseEstimator, RegressorMixin):
             n_iter=10,
             test_size=0.5,
             warm_start=True,
-            n_features_in_=None):
+            n_features_in_=None,
+            init_neurons=None):
         self.num_nets = num_nets
         # check that transition probabilities look like list of numbers
         try:
@@ -334,13 +335,17 @@ class BARN(BaseEstimator, RegressorMixin):
         self.initialized=False
         self.warm_start=warm_start
         self.n_features_in_ = n_features_in_
+        if init_neurons is None:
+            self.init_neurons = 1
+        else:
+            self.init_neurons = init_neurons
 
     def setup_nets(self, n_features_in_=None):
         if n_features_in_ is None:
             n_features_in_ = self.n_features_in_
         elif self.n_features_in_ is None:
             self.n_features_in_ = n_features_in_
-        self.cyberspace = [self.NN(1, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=n_features_in_, batch_size=self.batch_size, solver=self.solver) for i in range(self.num_nets)]
+        self.cyberspace = [self.NN(self.init_neurons, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=n_features_in_, batch_size=self.batch_size, solver=self.solver) for i in range(self.num_nets)]
         self.initialized=True
 
     def fit(self, X, Y, Xva=None, Yva=None, Xte=None, Yte=None, n_iter=None):
@@ -374,60 +379,61 @@ class BARN(BaseEstimator, RegressorMixin):
             self.Yte_init = np.copy(Yh)
 
         accepted = 0
-        # setup residual array
-        S_tr = np.array([N.predict(Xtr) for N in self.cyberspace])
-        Rtr = Ytr - (np.sum(S_tr, axis=0) - S_tr[-1])
-        if Xva is not None:
-            S_va = np.array([N.predict(Xva) for N in self.cyberspace])
-            Rva = Yva - (np.sum(S_va, axis=0) - S_va[-1])
         phi = np.zeros(n_iter)
-        for i in tqdm(range(n_iter)):
-            # gibbs sample over the nets
-            for j in range(self.num_nets):
-                # compute resid against other nets
-                ## Use cached these results, add back most recent and remove current
-                ## TODO: double check this is correct
-                if Xva is not None:
-                    Rva = Rva - S_va[j-1] + S_va[j]
-                Rtr = Rtr - S_tr[j-1] + S_tr[j]
-
-                # grab current net in this position
-                N = self.cyberspace[j]
-                # create proposed change
-                choice = np.random.choice(self.trans_options, p=self.trans_probs)
-                if choice == 'grow':
-                    Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, batch_size=self.batch_size, solver=self.solver)
-                    q = self.trans_probs[0]
-                elif N.num_nodes-1 == 0:
-                    # TODO: better handle zero neuron case, don't just skip
-                    continue # don't bother building empty model
-                else:
-                    Np = self.NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, solver=self.solver)
-                    q = self.trans_probs[1]
-                Np.train(Xtr,Rtr)
-                # determine if we should keep it
-                if Xva is not None:
-                    Xcomp = Xva
-                    Rcomp = Rva
-                else:
-                    Xcomp = Xtr
-                    Rcomp = Rtr
-                if np.random.random() < A(Np, N, Xcomp, Rcomp, q):
-                    self.cyberspace[j] = Np
-                    accepted += 1
-                    S_tr[j] = Np.predict(Xtr)
-                    if Xva is not None:
-                        S_va[j] = Np.predict(Xva)
+        if n_iter > 0:
+            # setup residual array
+            S_tr = np.array([N.predict(Xtr) for N in self.cyberspace])
+            Rtr = Ytr - (np.sum(S_tr, axis=0) - S_tr[-1])
             if Xva is not None:
-                Rphi = Rva
-                S_phi = S_va
-            else:
-                Rphi = Rtr
-                S_phi = S_tr
-            # overall validation error at this MCMC iteration
-            phi[i] = np.sqrt(np.mean((Rphi - S_phi[j])**2))
+                S_va = np.array([N.predict(Xva) for N in self.cyberspace])
+                Rva = Yva - (np.sum(S_va, axis=0) - S_va[-1])
+            for i in tqdm(range(n_iter)):
+                # gibbs sample over the nets
+                for j in range(self.num_nets):
+                    # compute resid against other nets
+                    ## Use cached these results, add back most recent and remove current
+                    ## TODO: double check this is correct
+                    if Xva is not None:
+                        Rva = Rva - S_va[j-1] + S_va[j]
+                    Rtr = Rtr - S_tr[j-1] + S_tr[j]
 
-            # check if worth stopping early?
+                    # grab current net in this position
+                    N = self.cyberspace[j]
+                    # create proposed change
+                    choice = np.random.choice(self.trans_options, p=self.trans_probs)
+                    if choice == 'grow':
+                        Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, batch_size=self.batch_size, solver=self.solver)
+                        q = self.trans_probs[0]
+                    elif N.num_nodes-1 == 0:
+                        # TODO: better handle zero neuron case, don't just skip
+                        continue # don't bother building empty model
+                    else:
+                        Np = self.NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, solver=self.solver)
+                        q = self.trans_probs[1]
+                    Np.train(Xtr,Rtr)
+                    # determine if we should keep it
+                    if Xva is not None:
+                        Xcomp = Xva
+                        Rcomp = Rva
+                    else:
+                        Xcomp = Xtr
+                        Rcomp = Rtr
+                    if np.random.random() < A(Np, N, Xcomp, Rcomp, q):
+                        self.cyberspace[j] = Np
+                        accepted += 1
+                        S_tr[j] = Np.predict(Xtr)
+                        if Xva is not None:
+                            S_va[j] = Np.predict(Xva)
+                if Xva is not None:
+                    Rphi = Rva
+                    S_phi = S_va
+                else:
+                    Rphi = Rtr
+                    S_phi = S_tr
+                # overall validation error at this MCMC iteration
+                phi[i] = np.sqrt(np.mean((Rphi - S_phi[j])**2))
+
+                # check if worth stopping early?
         self.phi = phi
         self.accepted = accepted
         if Xte is not None:
