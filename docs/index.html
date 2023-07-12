@@ -16,7 +16,7 @@
     <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Usage" href="usage.html" />
+    <link rel="next" title="Math" href="math.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -38,7 +38,6 @@
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="math.html">Math</a></li>
 <li class="toctree-l1"><a class="reference internal" href="barn.html">BARN</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="barn.html#nn">NN</a></li>
@@ -47,12 +46,27 @@
 </li>
 </ul>
 </div>
+<p>BARMPy is a Python library to implement <a class="reference external" href="https://dvbuntu.github.io/talks/2022-08-01-barn">Bayesian Additive Regression Networks</a> (BARN, sometimes generalized to BAR*M* for generic <em>Models</em>), a machine learning method to ensemble together small models using Markov Chain Monte Carlo (MCMC) methods.  This approach takes much inspiration from <a class="reference external" href="https://arxiv.org/abs/0806.3286">Bayesian Additive Regression Trees</a> (BART).</p>
+<p>BARN excels at accurately modeling a wide variety of regression problems with equal aplomb.  This does come with a cost, as running the MCMC iterations and training neural networks can be computationally intensive.  Problems with a thousand data points and ten features can take on the order of a second, but this varies with <em>difficulty</em> of the problem as much as the problem size itself.</p>
 </section>
-<section id="indices-and-tables">
-<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this heading">¶</a></h1>
+<section id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this heading">¶</a></h1>
+<p>PyPi packages will be coming soon, but until then, you can install from the repository itself:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>git@github.com:dvbuntu/barmpy.git
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>./barmpy
+</pre></div>
+</div>
+</section>
+<section id="tutorial">
+<h1>Tutorial<a class="headerlink" href="#tutorial" title="Permalink to this heading">¶</a></h1>
+<p>Currently available in <a class="reference external" href="https://github.com/dvbuntu/barmpy/blob/main/examples/tutorial.Rmd">BARMPy Repo</a> or precompiled <a class="reference external" href="https://drive.google.com/file/d/1FgpCyEUqqnihkfm-6nuV5RdZwAJlSJq5/view?usp=drive_link">here</a>.</p>
+</section>
+<section id="links">
+<h1>Links<a class="headerlink" href="#links" title="Permalink to this heading">¶</a></h1>
 <ul class="simple">
 <li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
 <li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+<li><p><a class="reference external" href="https://github.com/dvbuntu/barmpy">GitHub Repo</a></p></li>
 </ul>
 </section>
 
@@ -75,7 +89,6 @@
 <h3>Navigation</h3>
 <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="math.html">Math</a></li>
 <li class="toctree-l1"><a class="reference internal" href="barn.html">BARN</a></li>
 </ul>
@@ -84,7 +97,7 @@
 <h3>Related Topics</h3>
 <ul>
   <li><a href="#">Documentation overview</a><ul>
-      <li>Next: <a href="usage.html" title="next chapter">Usage</a></li>
+      <li>Next: <a href="math.html" title="next chapter">Math</a></li>
   </ul></li>
 </ul>
 </div>

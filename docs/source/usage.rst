@@ -1,6 +1,0 @@
-
-Usage
-=====
-
-Loreum Ipsum `barmpy`
-

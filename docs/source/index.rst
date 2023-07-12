@@ -10,13 +10,33 @@ Welcome to BARMPy's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   usage
    math
    barn
 
 
-Indices and tables
-==================
+BARMPy is a Python library to implement `Bayesian Additive Regression Networks <https://dvbuntu.github.io/talks/2022-08-01-barn>`_ (BARN, sometimes generalized to BAR*M* for generic *Models*), a machine learning method to ensemble together small models using Markov Chain Monte Carlo (MCMC) methods.  This approach takes much inspiration from `Bayesian Additive Regression Trees <https://arxiv.org/abs/0806.3286>`_ (BART).
+
+BARN excels at accurately modeling a wide variety of regression problems with equal aplomb.  This does come with a cost, as running the MCMC iterations and training neural networks can be computationally intensive.  Problems with a thousand data points and ten features can take on the order of a second, but this varies with *difficulty* of the problem as much as the problem size itself.
+
+Installation
+============
+
+PyPi packages will be coming soon, but until then, you can install from the repository itself:
+
+.. code-block:: bash
+
+   git clone git@github.com:dvbuntu/barmpy.git
+   pip install -e ./barmpy
+
+Tutorial
+========
+
+Currently available in `BARMPy Repo <https://github.com/dvbuntu/barmpy/blob/main/examples/tutorial.Rmd>`_ or precompiled `here <https://drive.google.com/file/d/1FgpCyEUqqnihkfm-6nuV5RdZwAJlSJq5/view?usp=drive_link>`_.
+
+Links
+=====
 
 * :ref:`genindex`
 * :ref:`search`
+* `GitHub Repo <https://github.com/dvbuntu/barmpy>`_
+
