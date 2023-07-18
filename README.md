@@ -16,6 +16,8 @@
 
 Skeleton repo adapted from [BartPy](https://github.com/JakeColtman/bartpy).
 
+Check out the [Tutorial](https://drive.google.com/file/d/1FgpCyEUqqnihkfm-6nuV5RdZwAJlSJq5/view?usp=drive_link)
+
 ## References
 
  [1] https://meetings.ams.org/math/fall2022c/meetingapp.cgi/Paper/14985

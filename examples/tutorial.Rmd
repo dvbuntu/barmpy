@@ -115,14 +115,15 @@ But let's see how BARN performs.  We call it in a very similar fashion to `sklea
 from barmpy.barn import BARN
 
 # create model and fit
+## l=3 sets expected number of neurons, poisson distributed
+## solver='lbfgs' uses newtonian solver
 barn_model = BARN(num_nets=33,
                 trans_probs=[0.5,0.5],
-                random_state=42
+                random_state=43,
+                l=3,
+                solver='lbfgs',
                 )
-# l=3 sets expected number of neurons, poisson distributed
-# lr=0.1 is a somewhat high learning rate
-_ = barn_model.setup_nets(epochs=20, l=3, lr=0.1)
-_ = barn_model.train(Xtr,Ytr, Xva, Yva, Xte, Yte,)
+_ = barn_model.fit(Xtr,Ytr, Xva, Yva, Xte, Yte,)
 
 # analyze results
 pred = barn_model.predict(Xte)
@@ -226,12 +227,11 @@ Now let's try BARN, using similar parameters as we did previously.  We will only
 # create model and fit
 barn_model = BARN(num_nets=33,
                 trans_probs=[0.5,0.5],
-                random_state=42
+                random_state=42,
+                l=3,
+                solver='lbfgs'
                 )
-# l=3 sets expected number of neurons, poisson distributed
-# lr=0.1 is a somewhat high learning rate
-_ = barn_model.setup_nets(epochs=20, l=3, lr=0.1)
-_ = barn_model.train(Xtr[:,:1],Ytr, Xva[:,:1], Yva, Xte[:,:1], Yte,)
+_ = barn_model.fit(Xtr[:,:1],Ytr, Xva[:,:1], Yva, Xte[:,:1], Yte,)
 
 # straight NN
 import sklearn.neural_network as sknn

@@ -74,6 +74,9 @@ class NN(object):
             self.accept_donation(donor_num_nodes, donor_weights, donor_intercepts)
 
     def save(self, fname):
+        '''
+        Save NN to disk as a NumPy archive
+        '''
         params = np.array([self.num_nodes, self.l, self.lr, self.r,
             self.epochs, self.x_in])
         coefs_, intercepts_ = self.model.get_weights()
@@ -82,6 +85,9 @@ class NN(object):
                 intercepts_=intercepts_)
 
     def get_weights(self):
+        '''
+        Return `sklearn` style tuple of `(coefs_, intercepts_)`
+        '''
         return (self.model.coefs_, self.model.intercepts_)
 
     def accept_donation(self, donor_num_nodes, donor_weights, donor_intercepts):
@@ -114,6 +120,9 @@ class NN(object):
 
     @staticmethod
     def load(fname):
+        '''
+        Read a NumPy archive of an NN (such as created by `save`) into a new NN
+        '''
         network = np.load(fname)
         N = NN(network['params'][0],
                l=network['params'][1],
@@ -152,6 +161,7 @@ class NN(object):
         return np.sum(scipy.stats.norm.logpdf(resid, 0, std))
 
     def log_acceptance(self, X, Y):
+        '''Natural log of acceptance probability of transiting from X to Y'''
         return self.log_prior+self.log_likelihood(X,Y)
 
     def log_transition(self, target, q=0.5):
@@ -341,6 +351,9 @@ class BARN(BaseEstimator, RegressorMixin):
             self.init_neurons = init_neurons
 
     def setup_nets(self, n_features_in_=None):
+        '''
+        Intermediate method to initialize networks in ensemble
+        '''
         if n_features_in_ is None:
             n_features_in_ = self.n_features_in_
         elif self.n_features_in_ is None:
@@ -349,6 +362,16 @@ class BARN(BaseEstimator, RegressorMixin):
         self.initialized=True
 
     def fit(self, X, Y, Xva=None, Yva=None, Xte=None, Yte=None, n_iter=None):
+        '''
+        Overall BARN fitting method.
+
+        If `Xva`/`Yva` not supplied yet such data is requested by `self.test_size`,
+        then training data is split, using `self.test_size` fraction as validation.
+        If this validation data is available, it's used for acceptance.  Otherwise,
+        the training data is reused for the probability calculation.
+
+        If `Xte`/`Yte` not supplied, however, we skip the test data calculation.
+        '''
         if not self.initialized or not self.warm_start:
             self.n_features_in_ = X.shape[1]
             self.setup_nets()
@@ -467,6 +490,8 @@ class BARN(BaseEstimator, RegressorMixin):
         Shows:
             1. Plot of `Y_test` vs `Y_test_pred_initial` (optional)
             2. Plot of `Y_test` vs `Y_test_pred_final`
+
+        Requires existing `self.Xte` and `self.Yte` (usually set by `self.fit`)
         '''
         fig, ax = plt.subplots(1,1+extra_slots+initial, squeeze=True, sharex=True,sharey=True)
         fig.set_size_inches(12+4*extra_slots,4)
@@ -524,6 +549,9 @@ class BARN(BaseEstimator, RegressorMixin):
         return var
 
     def save(self, outname):
+        '''
+        Save the entire ensemble of NNs as a Python pickle.  Load with pickle too.
+        '''
         # This only saves the last iteration of full models, but that's something
         if self.use_tf:
             # convert to sklearn and save? Don't actually have a load method yet!
@@ -535,4 +563,7 @@ class BARN(BaseEstimator, RegressorMixin):
                 pickle.dump(self.cyberspace, f)
 
     def get_weights(self):
+        '''
+        Obtain weights of the NNs in the ensemble.
+        '''
         return [nn.get_weights() for nn in self.cyberspace]
