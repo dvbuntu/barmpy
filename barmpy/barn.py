@@ -41,7 +41,8 @@ class NN(object):
             epochs=20,
             x_in=None,
             batch_size=512,
-            solver=None):
+            solver=None,
+            tol=1e-3):
         self.num_nodes = num_nodes
         self.x_in = x_in
         # make an NN with a single hidden layer with num_nodes nodes
@@ -58,7 +59,7 @@ class NN(object):
                 batch_size=batch_size,
                 warm_start=True,
                 solver=solver,
-                tol = 1e-3) # TODO: scale with output
+                tol=tol) # TODO: scale with output
         # l is poisson shape param, expected number of nodes
         self.l = l
         self.lr = lr
@@ -192,7 +193,8 @@ if HAVE_TF:
                 epochs=20,
                 x_in=None,
                 batch_size=512,
-                solver=None):
+                solver=None,
+                tol=None):
             assert x_in is not None
             self.num_nodes = num_nodes
             tf.keras.utils.set_random_seed(r) #TODO: make sure to vary when calling
@@ -312,7 +314,8 @@ class BARN(BaseEstimator, RegressorMixin):
             test_size=0.5,
             warm_start=True,
             n_features_in_=None,
-            init_neurons=None):
+            init_neurons=None,
+            tol=1e-3):
         self.num_nets = num_nets
         # check that transition probabilities look like list of numbers
         try:
@@ -345,6 +348,7 @@ class BARN(BaseEstimator, RegressorMixin):
         self.initialized=False
         self.warm_start=warm_start
         self.n_features_in_ = n_features_in_
+        self.tol = tol
         if init_neurons is None:
             self.init_neurons = 1
         else:
@@ -358,7 +362,7 @@ class BARN(BaseEstimator, RegressorMixin):
             n_features_in_ = self.n_features_in_
         elif self.n_features_in_ is None:
             self.n_features_in_ = n_features_in_
-        self.cyberspace = [self.NN(self.init_neurons, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=n_features_in_, batch_size=self.batch_size, solver=self.solver) for i in range(self.num_nets)]
+        self.cyberspace = [self.NN(self.init_neurons, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=n_features_in_, batch_size=self.batch_size, solver=self.solver, tol=self.tol) for i in range(self.num_nets)]
         self.initialized=True
 
     def fit(self, X, Y, Xva=None, Yva=None, Xte=None, Yte=None, n_iter=None):
@@ -425,13 +429,13 @@ class BARN(BaseEstimator, RegressorMixin):
                     # create proposed change
                     choice = np.random.choice(self.trans_options, p=self.trans_probs)
                     if choice == 'grow':
-                        Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, batch_size=self.batch_size, solver=self.solver)
+                        Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, batch_size=self.batch_size, solver=self.solver, tol=self.tol)
                         q = self.trans_probs[0]
                     elif N.num_nodes-1 == 0:
                         # TODO: better handle zero neuron case, don't just skip
                         continue # don't bother building empty model
                     else:
-                        Np = self.NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, solver=self.solver)
+                        Np = self.NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, solver=self.solver, tol=self.tol)
                         q = self.trans_probs[1]
                     Np.train(Xtr,Rtr)
                     # determine if we should keep it
