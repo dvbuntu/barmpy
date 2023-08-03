@@ -316,7 +316,7 @@ class BARN(BaseEstimator, RegressorMixin):
             n_features_in_=None,
             init_neurons=None,
             tol=1e-3,
-            callbacks=[],
+            callbacks=dict(),
             ):
         self.num_nets = num_nets
         # check that transition probabilities look like list of numbers
@@ -476,8 +476,8 @@ class BARN(BaseEstimator, RegressorMixin):
                 # indicates we ended early
                 self.n_iter = i-1
                 # shorten the saved results (or fill rest with NaNs?
-                self.phi = self.phi[:i]
-                self.n_trans_iter = self.n_trans_iter[:i]
+                self.phi = self.phi[:i-1]
+                self.ntrans_iter = self.ntrans_iter[:i-1]
 
         if Xte is not None:
             self.Xte = Xte
@@ -601,15 +601,16 @@ class BARN(BaseEstimator, RegressorMixin):
         if check_every is None:
             check_every = max(self.n_iter//10, 1)
         # not an iteration to stop on
-        if == 0 or i % check_every != 0:
+        if i == 0 or i % check_every != 0:
             return None
         if i < skip_first or i-check_every <= 0:
             return None
         tol = 1+tol
         old_best = np.min(self.phi[:i-check_every])
-        recent_best = np.min(self.phi[i-check_every:])
+        recent_best = np.min(self.phi[i-check_every:i])
         # if it's getting worse, then stop
-        if old_best*tol < recent_best:
+        print(old_best*tol, recent_best)
+        if old_best*tol <= recent_best:
             raise JackPot
         else:
             return None
@@ -625,13 +626,13 @@ class BARN(BaseEstimator, RegressorMixin):
         if check_every is None:
             check_every = max(self.n_iter//10, 1)
         # not an iteration to stop on
-        if == 0 or i % check_every != 0:
+        if i == 0 or i % check_every != 0:
             return None
         if i < skip_first:
             return None
         if ntrans is None:
             ntrans = max(self.num_nets//5,1)
-        if self.ntrans_iter[i-1] < ntrans:
+        if self.ntrans_iter[i-1] < ntrans: # maybe check mean percent across block?
             raise JackPot
 
 # A way to break out of nested for loops without trying to be clever with flags

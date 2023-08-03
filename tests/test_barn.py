@@ -67,6 +67,24 @@ class TestBARN(unittest.TestCase):
         except TypeError:
             pass
 
+    def test_improvement(self):
+        callbacks = {BARN.improvement:{'check_every':1,'skip_first':4}}
+        n_iter=100
+        model = BARN(num_nets=1, callbacks=callbacks, n_iter=n_iter)
+        model.fit(self.X, self.Y)
+        self.assertGreaterEqual(model.n_iter, 3)
+        self.assertLess(model.n_iter, n_iter)
+
+    def test_trans_enough(self):
+        callbacks = {BARN.trans_enough:{'check_every':1,
+                                        'skip_first':4,
+                                        'ntrans':4}}
+        n_iter=100
+        model = BARN(num_nets=4, callbacks=callbacks)
+        model.fit(self.X, self.Y)
+        self.assertGreaterEqual(model.n_iter, 3)
+        self.assertLess(model.ntrans_iter[-1], 4)
+
 class TestBARN_TF(TestBARN):
     USE_TF = True
 
