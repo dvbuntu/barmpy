@@ -315,7 +315,9 @@ class BARN(BaseEstimator, RegressorMixin):
             warm_start=True,
             n_features_in_=None,
             init_neurons=None,
-            tol=1e-3):
+            tol=1e-3,
+            callbacks=[],
+            ):
         self.num_nets = num_nets
         # check that transition probabilities look like list of numbers
         try:
@@ -349,6 +351,7 @@ class BARN(BaseEstimator, RegressorMixin):
         self.warm_start=warm_start
         self.n_features_in_ = n_features_in_
         self.tol = tol
+        self.callbacks = callbacks
         if init_neurons is None:
             self.init_neurons = 1
         else:
@@ -383,6 +386,9 @@ class BARN(BaseEstimator, RegressorMixin):
         Ytr = Y
         if n_iter is None:
             n_iter = self.n_iter
+        else:
+            self.n_iter = n_iter # ok to overwrite?
+            pass
 
         if Xva is None and self.test_size > 0:
             Xtr, XX, Ytr, YY = skms.train_test_split(Xtr,Ytr,
@@ -405,8 +411,9 @@ class BARN(BaseEstimator, RegressorMixin):
             Yh = np.sum([N.predict(Xte) for N in self.cyberspace], axis=0)
             self.Yte_init = np.copy(Yh)
 
-        accepted = 0
-        phi = np.zeros(n_iter)
+        self.accepted = 0
+        self.phi = np.zeros(n_iter)
+        self.ntrans_iter = np.zeros(n_iter)
         if n_iter > 0:
             # setup residual array
             S_tr = np.array([N.predict(Xtr) for N in self.cyberspace])
@@ -414,55 +421,64 @@ class BARN(BaseEstimator, RegressorMixin):
             if Xva is not None:
                 S_va = np.array([N.predict(Xva) for N in self.cyberspace])
                 Rva = Yva - (np.sum(S_va, axis=0) - S_va[-1])
-            for i in tqdm(range(n_iter)):
-                # gibbs sample over the nets
-                for j in range(self.num_nets):
-                    # compute resid against other nets
-                    ## Use cached these results, add back most recent and remove current
-                    ## TODO: double check this is correct
-                    if Xva is not None:
-                        Rva = Rva - S_va[j-1] + S_va[j]
-                    Rtr = Rtr - S_tr[j-1] + S_tr[j]
+            try:
+                for i in tqdm(range(n_iter)):
+                    self.i = i # only for checking callbacks
+                    for callback,kwargs in self.callbacks.items():
+                        res = callback(self, **kwargs)
 
-                    # grab current net in this position
-                    N = self.cyberspace[j]
-                    # create proposed change
-                    choice = np.random.choice(self.trans_options, p=self.trans_probs)
-                    if choice == 'grow':
-                        Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, batch_size=self.batch_size, solver=self.solver, tol=self.tol)
-                        q = self.trans_probs[0]
-                    elif N.num_nodes-1 == 0:
-                        # TODO: better handle zero neuron case, don't just skip
-                        continue # don't bother building empty model
-                    else:
-                        Np = self.NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, solver=self.solver, tol=self.tol)
-                        q = self.trans_probs[1]
-                    Np.train(Xtr,Rtr)
-                    # determine if we should keep it
-                    if Xva is not None:
-                        Xcomp = Xva
-                        Rcomp = Rva
-                    else:
-                        Xcomp = Xtr
-                        Rcomp = Rtr
-                    if np.random.random() < A(Np, N, Xcomp, Rcomp, q):
-                        self.cyberspace[j] = Np
-                        accepted += 1
-                        S_tr[j] = Np.predict(Xtr)
+                    # gibbs sample over the nets
+                    for j in range(self.num_nets):
+                        # compute resid against other nets
+                        ## Use cached these results, add back most recent and remove current
+                        ## TODO: double check this is correct
                         if Xva is not None:
-                            S_va[j] = Np.predict(Xva)
-                if Xva is not None:
-                    Rphi = Rva
-                    S_phi = S_va
-                else:
-                    Rphi = Rtr
-                    S_phi = S_tr
-                # overall validation error at this MCMC iteration
-                phi[i] = np.sqrt(np.mean((Rphi - S_phi[j])**2))
+                            Rva = Rva - S_va[j-1] + S_va[j]
+                        Rtr = Rtr - S_tr[j-1] + S_tr[j]
 
-                # check if worth stopping early?
-        self.phi = phi
-        self.accepted = accepted
+                        # grab current net in this position
+                        N = self.cyberspace[j]
+                        # create proposed change
+                        choice = np.random.choice(self.trans_options, p=self.trans_probs)
+                        if choice == 'grow':
+                            Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, batch_size=self.batch_size, solver=self.solver, tol=self.tol)
+                            q = self.trans_probs[0]
+                        elif N.num_nodes-1 == 0:
+                            # TODO: better handle zero neuron case, don't just skip
+                            continue # don't bother building empty model
+                        else:
+                            Np = self.NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, solver=self.solver, tol=self.tol)
+                            q = self.trans_probs[1]
+                        Np.train(Xtr,Rtr)
+                        # determine if we should keep it
+                        if Xva is not None:
+                            Xcomp = Xva
+                            Rcomp = Rva
+                        else:
+                            Xcomp = Xtr
+                            Rcomp = Rtr
+                        if np.random.random() < A(Np, N, Xcomp, Rcomp, q):
+                            self.cyberspace[j] = Np
+                            self.accepted += 1
+                            self.ntrans_iter[i] += 1
+                            S_tr[j] = Np.predict(Xtr)
+                            if Xva is not None:
+                                S_va[j] = Np.predict(Xva)
+                    if Xva is not None:
+                        Rphi = Rva
+                        S_phi = S_va
+                    else:
+                        Rphi = Rtr
+                        S_phi = S_tr
+                    # overall validation error at this MCMC iteration
+                    self.phi[i] = np.sqrt(np.mean((Rphi - S_phi[j])**2))
+            except JackPot:
+                # indicates we ended early
+                self.n_iter = i-1
+                # shorten the saved results (or fill rest with NaNs?
+                self.phi = self.phi[:i]
+                self.n_trans_iter = self.n_trans_iter[:i]
+
         if Xte is not None:
             self.Xte = Xte
             self.Yte = Yte
@@ -571,3 +587,53 @@ class BARN(BaseEstimator, RegressorMixin):
         Obtain weights of the NNs in the ensemble.
         '''
         return [nn.get_weights() for nn in self.cyberspace]
+
+    @staticmethod
+    def improvement(self, check_every=None, skip_first=0, tol=0):
+        '''
+        Stop early if performance has not improved for `check_every` iters.
+
+        Allow wiggle room such that if we are within `tol` % of old best, continue
+
+        Skip the first `skip_first` iters without checking
+        '''
+        i = self.i
+        if check_every is None:
+            check_every = max(self.n_iter//10, 1)
+        # not an iteration to stop on
+        if == 0 or i % check_every != 0:
+            return None
+        if i < skip_first or i-check_every <= 0:
+            return None
+        tol = 1+tol
+        old_best = np.min(self.phi[:i-check_every])
+        recent_best = np.min(self.phi[i-check_every:])
+        # if it's getting worse, then stop
+        if old_best*tol < recent_best:
+            raise JackPot
+        else:
+            return None
+
+    @staticmethod
+    def trans_enough(self, check_every=None, skip_first=0, ntrans=None):
+        '''
+        Stop early if fewer than `ntrans` transitions
+
+        Skip the first `skip_first` iters without checking
+        '''
+        i = self.i
+        if check_every is None:
+            check_every = max(self.n_iter//10, 1)
+        # not an iteration to stop on
+        if == 0 or i % check_every != 0:
+            return None
+        if i < skip_first:
+            return None
+        if ntrans is None:
+            ntrans = max(self.num_nets//5,1)
+        if self.ntrans_iter[i-1] < ntrans:
+            raise JackPot
+
+# A way to break out of nested for loops without trying to be clever with flags
+class JackPot(Exception):
+    pass
