@@ -414,6 +414,9 @@ class BARN(BaseEstimator, RegressorMixin):
         self.accepted = 0
         self.phi = np.zeros(n_iter)
         self.ntrans_iter = np.zeros(n_iter)
+        self.actual_num_neuron = np.zeros((self.n_iter,
+                                           self.num_nets),
+                                           dtype=np.uint8)
         if n_iter > 0:
             # setup residual array
             S_tr = np.array([N.predict(Xtr) for N in self.cyberspace])
@@ -472,6 +475,7 @@ class BARN(BaseEstimator, RegressorMixin):
                         S_phi = S_tr
                     # overall validation error at this MCMC iteration
                     self.phi[i] = np.sqrt(np.mean((Rphi - S_phi[j])**2))
+                    self.actual_num_neuron[i] = [m.num_nodes for m in self.cyberspace]
             except JackPot:
                 # indicates we ended early
                 self.n_iter = i-1
@@ -633,6 +637,38 @@ class BARN(BaseEstimator, RegressorMixin):
         if ntrans is None:
             ntrans = max(self.num_nets//5,1)
         if self.ntrans_iter[i-1] < ntrans: # maybe check mean percent across block?
+            raise JackPot
+
+    @staticmethod
+    def stable_dist(self, check_every=None, skip_first=0, tol=None):
+        '''
+        Stop early if posterior distribution of neuron count is stable
+
+        Skip the first `skip_first` iters without checking
+        '''
+        i = self.i
+        if check_every is None:
+            check_every = max(self.n_iter//10, 1)
+        if tol is None:
+            tol = self.num_nets//10 # 10% of nets can change one value
+        # not an iteration to stop on
+        if i == 0 or i % check_every != 0:
+            return None
+        if i < skip_first:
+            return None
+        # find max Earth Mover Distance in last successive check_every steps
+        max_dist = None
+        for j in range(check_every):
+            idx = i-check_every+j-1
+            # skip if trying to compare before first entry
+            if idx < 0:
+                continue
+            ws = scipy.stats.wasserstein_distance(
+                    self.actual_num_neuron[idx],
+                    self.actual_num_neuron[idx+1])
+            if max_dist is None or ws > max_dist:
+                max_dist = ws
+        if max_dist <= tol:
             raise JackPot
 
 # A way to break out of nested for loops without trying to be clever with flags

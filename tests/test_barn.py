@@ -79,11 +79,19 @@ class TestBARN(unittest.TestCase):
         callbacks = {BARN.trans_enough:{'check_every':1,
                                         'skip_first':4,
                                         'ntrans':4}}
-        n_iter=100
         model = BARN(num_nets=4, callbacks=callbacks)
         model.fit(self.X, self.Y)
         self.assertGreaterEqual(model.n_iter, 3)
         self.assertLess(model.ntrans_iter[-1], 4)
+
+    def test_stable_dist(self):
+        callbacks = {BARN.stable_dist:{'check_every':1,
+                                        'skip_first':4,
+                                        'tol':0.1}}
+        model = BARN(num_nets=10, callbacks=callbacks, n_iter=100)
+        model.fit(self.X, self.Y)
+        self.assertGreaterEqual(model.n_iter, 3)
+        self.assertLess(model.n_iter, 100)
 
 class TestBARN_TF(TestBARN):
     USE_TF = True
