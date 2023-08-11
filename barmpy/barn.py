@@ -553,19 +553,21 @@ class BARN(BaseEstimator, RegressorMixin):
             plt.close()
         return fig, ax, rmseh2
 
-    def batch_means(self, num_batch=20, batch_size=None, np_out='val_resid.npy', outfile='var_all.csv', mode='a', burn=None):
+    def batch_means(self, num_batch=20, batch_size=None, np_out='val_resid.npy', outfile='var_all.csv', mode='a', burn=None, num=None):
         '''
         Compute batch means variance over computed results.
         '''
         if burn is None:
             burn = 100
+        if num is None:
+            num = len(self.phi[burn:])
         if batch_size is None:
             batch_size = self.total_iters//num_batch
         # check batch means variance
-        mu = np.mean(self.phi[burn:])
+        mu = np.mean(self.phi[burn:burn+num])
         if np_out:
             np.save(np_out, self.phi) # only final saved
-        batch_phi = np.mean(self.phi[burn:].reshape((num_batch, batch_size)), axis=1)
+        batch_phi = np.mean(self.phi[burn:burn+num].reshape((num_batch, batch_size)), axis=1)
         var = np.sum((batch_phi-mu)**2)/(num_batch*(num_batch-1))
         if outfile:
             with open(outfile, mode) as f:
@@ -670,6 +672,32 @@ class BARN(BaseEstimator, RegressorMixin):
                 max_dist = ws
         if max_dist <= tol:
             raise JackPot
+
+    @staticmethod
+    def rfwsr(self, check_every=None, skip_first=0, t=2, eps=0.01):
+        '''
+        Relative Fixed Width Stopping Rule
+
+        `t*sig/sqrt(n) + 1/n <= eps * gbar`
+
+        Skip the first `skip_first` iters without checking
+        '''
+        i = self.i
+        if check_every is None:
+            check_every = max(self.n_iter//10, 1)
+        # not an iteration to stop on
+        if i == 0 or i % check_every != 0:
+            return None
+        if i < skip_first:
+            return None
+        gbar = np.mean(self.phi[i-check_every:i]) 
+        sig = self.batch_means(num_batch=i//check_every,
+                batch_size=check_every,
+                num=i,
+                np_out='', outfile='', burn=0)
+        if t*sig/np.sqrt(i) + 1/i <= eps*gbar:
+            raise JackPot
+
 
 # A way to break out of nested for loops without trying to be clever with flags
 class JackPot(Exception):
