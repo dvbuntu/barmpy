@@ -690,12 +690,18 @@ class BARN(BaseEstimator, RegressorMixin):
             return None
         if i < skip_first:
             return None
-        gbar = np.mean(self.phi[i-check_every:i]) 
-        sig = self.batch_means(num_batch=i//check_every,
+        # only use last half of steps, to avoid burn-in period
+        num_batch = i//(2*check_every)
+        if num_batch == 0:
+            return None
+        num = num_batch*check_every
+        burn = i-num
+        gbar = np.mean(self.phi[burn:i]) 
+        sig = self.batch_means(num_batch=num_batch,
                 batch_size=check_every,
-                num=i,
-                np_out='', outfile='', burn=0)
-        if t*sig/np.sqrt(i) + 1/i <= eps*gbar:
+                num=num,
+                np_out='', outfile='', burn=burn)
+        if t*sig/np.sqrt(num)<= eps*gbar: # removed 1/n term on LHS
             raise JackPot
 
 

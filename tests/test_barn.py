@@ -93,9 +93,19 @@ class TestBARN(unittest.TestCase):
         self.assertGreaterEqual(model.n_iter, 3)
         self.assertLess(model.n_iter, 100)
 
+    def test_rfwsr(self):
+        callbacks = {BARN.rfwsr:{'check_every':5,
+                                        'skip_first':5,
+                                        't':3,
+                                        'eps':1e-3}}
+        model = BARN(num_nets=10, callbacks=callbacks, n_iter=100)
+        model.fit(self.X, self.Y)
+        self.assertGreaterEqual(model.n_iter, 4)
+        self.assertLess(model.n_iter, 100)
+
 class TestBARN_TF(TestBARN):
     USE_TF = True
 
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(warnings="ignore")
