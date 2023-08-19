@@ -507,7 +507,7 @@ class BARN(BaseEstimator, RegressorMixin):
             plt.close()
         return fig
 
-    def viz(self, outname='results.png', extra_slots=0, close=True, initial=False):
+    def viz(self, outname='results.png', extra_slots=0, close=True, initial=False, do_viz=True):
         '''
         Visualize results of BARN analysis.
 
@@ -548,7 +548,8 @@ class BARN(BaseEstimator, RegressorMixin):
         ax[0+initial].set_xlabel('Target')
         ax[0+initial].text(0.05, 0.85, f'$R^2 = $ {r2h2:0.4}\n$RMSE = $ {rmseh2:0.4}', transform=ax[0+initial].transAxes)
 
-        fig.savefig(outname)
+        if do_viz:
+            fig.savefig(outname)
         if close:
             plt.close()
         return fig, ax, rmseh2
@@ -560,7 +561,7 @@ class BARN(BaseEstimator, RegressorMixin):
         if burn is None:
             burn = 100
         if num is None:
-            num = len(self.phi[burn:])
+            num = min(len(self.phi[burn:]), num_batch*batch_size)
         if batch_size is None:
             batch_size = self.total_iters//num_batch
         # check batch means variance
@@ -644,7 +645,9 @@ class BARN(BaseEstimator, RegressorMixin):
     @staticmethod
     def stable_dist(self, check_every=None, skip_first=0, tol=None):
         '''
-        Stop early if posterior distribution of neuron count is stable
+        Stop early if posterior distribution of neuron distribution is stable
+
+        Tolerance is on Wassersten metric (aka Earth Mover Distance)
 
         Skip the first `skip_first` iters without checking
         '''
