@@ -576,10 +576,13 @@ class BARN(BaseEstimator, RegressorMixin):
         '''
         if burn is None:
             burn = 100
-        if num is None:
-            num = min(len(self.phi[burn:]), num_batch*batch_size)
         if batch_size is None:
             batch_size = self.total_iters//num_batch
+        if num is None:
+            num = min(len(self.phi[burn:]), num_batch*batch_size)
+        if num//num_batch != batch_size:
+            num -= num % batch_size
+            num_batch = int(num//batch_size)
         # check batch means variance
         mu = np.mean(self.phi[burn:burn+num])
         if np_out:
