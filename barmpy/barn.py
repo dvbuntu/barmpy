@@ -24,7 +24,8 @@ except:
 INFO = np.iinfo(np.int32)
 SMALL = INFO.min + 1
 BIG = INFO.max - 1
-REG = 0.001 # regularization
+REG = 0.01 # regularization
+ACT = 'relu'
 
 class NN(object):
     '''
@@ -42,7 +43,9 @@ class NN(object):
             x_in=None,
             batch_size=512,
             solver=None,
-            tol=1e-3):
+            tol=1e-3,
+            reg=REG,
+            act=ACT):
         self.num_nodes = num_nodes
         self.x_in = x_in
         # make an NN with a single hidden layer with num_nodes nodes
@@ -59,6 +62,8 @@ class NN(object):
                 batch_size=batch_size,
                 warm_start=True,
                 solver=solver,
+                alpha=reg,
+                activation=act,
                 tol=tol) # TODO: scale with output
         # l is poisson shape param, expected number of nodes
         self.l = l
@@ -67,7 +72,8 @@ class NN(object):
             r = int(time.time())
         self.r = r
         self.epochs = epochs
-        self.x_in = x_in
+        self.reg = reg
+        self.act = act
         if weight_donor is not None:
             # inherit the first num_nodes weights from this donor
             donor_num_nodes = weight_donor.num_nodes
@@ -79,7 +85,7 @@ class NN(object):
         Save NN to disk as a NumPy archive
         '''
         params = np.array([self.num_nodes, self.l, self.lr, self.r,
-            self.epochs, self.x_in])
+            self.epochs, self.x_in, self.reg, self.act])
         coefs_, intercepts_ = self.model.get_weights()
         np.savez_compressed(fname, params=params,
                 coefs_=coefs_,
@@ -130,7 +136,9 @@ class NN(object):
                lr=network['params'][2],
                r=network['params'][3],
                epochs=network['params'][4],
-               x_in=network['params'][5]
+               x_in=network['params'][5],
+               reg=network['params'][6],
+               act=network['params'][7],
                )
         donor_num_nodes = N.num_nodes
         donor_weights = network['coefs_']
@@ -194,6 +202,8 @@ if HAVE_TF:
                 x_in=None,
                 batch_size=512,
                 solver=None,
+                reg=REG,
+                act=ACT,
                 tol=None):
             assert x_in is not None
             self.num_nodes = num_nodes
@@ -204,15 +214,17 @@ if HAVE_TF:
             self.model.add(tkl.Input(shape=(x_in,)))
             self.model.add(tkl.Dense(num_nodes, # hidden layer
                 activation='relu',
-                kernel_regularizer=tkr.L1L2(REG),
-                bias_regularizer=tkr.L1L2(REG)))
+                kernel_regularizer=tkr.L1L2(reg),
+                bias_regularizer=tkr.L1L2(reg)))
             self.model.add(tkl.Dense(1,
-                kernel_regularizer=tkr.L1L2(REG),
-                bias_regularizer=tkr.L1L2(REG))) # output
+                kernel_regularizer=tkr.L1L2(reg),
+                bias_regularizer=tkr.L1L2(reg))) # output
             # l is poisson shape param, expected number of nodes
             self.l = l
             self.lr = lr
             self.r = r
+            self.reg = reg
+            self.act = act
             self.epochs = epochs
             self.x_in = x_in
             self.batch_size = batch_size
@@ -317,6 +329,8 @@ class BARN(BaseEstimator, RegressorMixin):
             init_neurons=None,
             tol=1e-3,
             callbacks=dict(),
+            reg=REG,
+            act=ACT,
             ):
         self.num_nets = num_nets
         # check that transition probabilities look like list of numbers
@@ -352,6 +366,8 @@ class BARN(BaseEstimator, RegressorMixin):
         self.n_features_in_ = n_features_in_
         self.tol = tol
         self.callbacks = callbacks
+        self.reg = reg
+        self.act = act
         if init_neurons is None:
             self.init_neurons = 1
         else:
@@ -365,7 +381,7 @@ class BARN(BaseEstimator, RegressorMixin):
             n_features_in_ = self.n_features_in_
         elif self.n_features_in_ is None:
             self.n_features_in_ = n_features_in_
-        self.cyberspace = [self.NN(self.init_neurons, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=n_features_in_, batch_size=self.batch_size, solver=self.solver, tol=self.tol) for i in range(self.num_nets)]
+        self.cyberspace = [self.NN(self.init_neurons, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=n_features_in_, batch_size=self.batch_size, solver=self.solver, tol=self.tol, reg=self.reg, act=self.act) for i in range(self.num_nets)]
         self.initialized=True
 
     def fit(self, X, Y, Xva=None, Yva=None, Xte=None, Yte=None, n_iter=None):
@@ -444,13 +460,13 @@ class BARN(BaseEstimator, RegressorMixin):
                         # create proposed change
                         choice = np.random.choice(self.trans_options, p=self.trans_probs)
                         if choice == 'grow':
-                            Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, batch_size=self.batch_size, solver=self.solver, tol=self.tol)
+                            Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, batch_size=self.batch_size, solver=self.solver, tol=self.tol, reg=self.reg, act=self.act)
                             q = self.trans_probs[0]
                         elif N.num_nodes-1 == 0:
                             # TODO: better handle zero neuron case, don't just skip
                             continue # don't bother building empty model
                         else:
-                            Np = self.NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, solver=self.solver, tol=self.tol)
+                            Np = self.NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, solver=self.solver, tol=self.tol, reg=self.reg, act=self.act)
                             q = self.trans_probs[1]
                         Np.train(Xtr,Rtr)
                         # determine if we should keep it
