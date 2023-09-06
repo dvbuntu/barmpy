@@ -568,7 +568,7 @@ class BARN(BaseEstimator, RegressorMixin):
             fig.savefig(outname)
         if close:
             plt.close()
-        return fig, ax, rmseh2
+        return fig, ax, rmseh2, r2h2
 
     def batch_means(self, num_batch=20, batch_size=None, np_out='val_resid.npy', outfile='var_all.csv', mode='a', burn=None, num=None):
         '''
