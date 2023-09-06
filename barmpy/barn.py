@@ -206,6 +206,8 @@ if HAVE_TF:
                 act=ACT,
                 tol=None):
             assert x_in is not None
+            if act == 'logistic':
+                act = 'sigmoid'
             self.num_nodes = num_nodes
             tf.keras.utils.set_random_seed(r) #TODO: make sure to vary when calling
             # make an NN with a single hidden layer with num_nodes nodes
@@ -213,7 +215,7 @@ if HAVE_TF:
             self.model = tf.keras.Sequential()
             self.model.add(tkl.Input(shape=(x_in,)))
             self.model.add(tkl.Dense(num_nodes, # hidden layer
-                activation='relu',
+                activation=act,
                 kernel_regularizer=tkr.L1L2(reg),
                 bias_regularizer=tkr.L1L2(reg)))
             self.model.add(tkl.Dense(1,
@@ -568,7 +570,7 @@ class BARN(BaseEstimator, RegressorMixin):
             fig.savefig(outname)
         if close:
             plt.close()
-        return fig, ax, rmseh2
+        return fig, ax, rmseh2, r2h2
 
     def batch_means(self, num_batch=20, batch_size=None, np_out='val_resid.npy', outfile='var_all.csv', mode='a', burn=None, num=None):
         '''
