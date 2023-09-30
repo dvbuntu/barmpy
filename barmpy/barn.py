@@ -425,6 +425,10 @@ class BARN(BaseEstimator, RegressorMixin):
             N.train(Xtr,Ytr/self.num_nets)
 
         # check initial fit
+        Yh_tr = np.sum([N.predict(Xtr) for N in self.cyberspace], axis=0)
+        self.Xtr = Xtr
+        self.Ytr = Ytr
+        self.Ytr_init = np.copy(Yh_tr)
         if Xte is not None:
             Yh = np.sum([N.predict(Xte) for N in self.cyberspace], axis=0)
             self.Yte_init = np.copy(Yh)
@@ -539,7 +543,9 @@ class BARN(BaseEstimator, RegressorMixin):
         fig.set_size_inches(12+4*extra_slots,4)
         if initial:
             # check initial fit
-            r2h = metrics.r2_score(self.Yte, self.Yte_init)
+            # replace r2 with training r2
+            #r2h = metrics.r2_score(self.Yte, self.Yte_init)
+            r2h = metrics.r2_score(self.Ytr, self.Ytr_init)
             rmseh = metrics.mean_squared_error(self.Yte, self.Yte_init, squared=False)
 
             ax[0].plot([np.min(self.Yte), np.max(self.Yte)],
@@ -547,7 +553,7 @@ class BARN(BaseEstimator, RegressorMixin):
             ax[0].scatter(self.Yte,self.Yte_init, c='orange') # somewhat decent on synth, gets lousy at edge, which makes sense
             ax[0].set_title('Initial BARN')
             ax[0].set_ylabel('Prediction')
-            ax[0].text(0.05, 0.85, f'$R^2 = $ {r2h:0.4}\n$RMSE = $ {rmseh:0.4}', transform=ax[0].transAxes)
+            ax[0].text(0.05, 0.85, f'Training $R^2 = $ {r2h:0.4}\nTest $RMSE = $ {rmseh:0.4}', transform=ax[0].transAxes)
         elif extra_slots + initial == 0:
             # pretend to have a list so we can access by index
             ax = [ax]
@@ -557,14 +563,15 @@ class BARN(BaseEstimator, RegressorMixin):
 
         # final fit
         Yh2 = self.predict(self.Xte)
-        r2h2 = metrics.r2_score(self.Yte, Yh2)
+        #r2h2 = metrics.r2_score(self.Yte, Yh2)
+        r2h2 = metrics.r2_score(self.Ytr, self.predict(self.Xtr))
         rmseh2 = metrics.mean_squared_error(self.Yte, Yh2, squared=False)
         ax[0+initial].plot([np.min(self.Yte), np.max(self.Yte)],
                    [np.min(self.Yte), np.max(self.Yte)])
         ax[0+initial].scatter(self.Yte,Yh2, c='orange')
         ax[0+initial].set_title('Final BARN')
         ax[0+initial].set_xlabel('Target')
-        ax[0+initial].text(0.05, 0.85, f'$R^2 = $ {r2h2:0.4}\n$RMSE = $ {rmseh2:0.4}', transform=ax[0+initial].transAxes)
+        ax[0+initial].text(0.05, 0.85, f'Training $R^2 = $ {r2h2:0.4}\nTest $RMSE = $ {rmseh2:0.4}', transform=ax[0+initial].transAxes)
 
         if do_viz:
             fig.savefig(outname)
@@ -639,6 +646,7 @@ class BARN(BaseEstimator, RegressorMixin):
         # if it's getting worse, then stop
         print(old_best*tol, recent_best)
         if old_best*tol <= recent_best:
+            print(f'Ended early on {i}!')
             raise JackPot
         else:
             return None
