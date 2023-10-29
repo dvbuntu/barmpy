@@ -2,7 +2,7 @@
 BARN
 ====
 
-One of the primary ensembles available in BARMPy (currently the only one) is that of the single hidden layer Neural Network.  When you collect several of these NNs, you have Bayesian Additive Regression Networks (BARN)
+One of the primary ensembles available in BARMPy (currently the only one) is a single hidden layer Neural Network.  When you collect several of these NNs, you have Bayesian Additive Regression Networks (BARN).
 
 NN
 --
@@ -16,7 +16,7 @@ Before building an ensemble, it's helpful to understand the core component that 
 BARN Class
 ----------
 
-Armed with a core `NN` class above, we can train the entire ensemble following our Bayesian procedure. 
+Equipped with a core `NN` class above, we can train the entire ensemble following our Bayesian procedure. 
 
 .. autoclass:: barmpy.barn.BARN
    :members:
@@ -30,7 +30,7 @@ Let's walk through a minimal example training an ensemble with BARN.  Start by g
 .. code-block:: python
 
    import numpy as np
-   X = np.random([100,2])
+   X = np.random.random([100,2])
    # make an ordinary linear relationship
    Y = X[:,0] + 2*X[:,1] + np.random.random(100)/10
 
@@ -39,15 +39,14 @@ Now we'll initialize a `BARN` setup with 3 `NN`'s.  We'll use the default
 .. code-block:: python
 
    from barmpy.barn import BARN, NN
-   model = BARN(num_nets=3, dname='example')
-   model.setup_nets()
+   model = BARN(num_nets=3, dname='example', epochs=100)
 
 
 Actually running the model is straightforward, but you can tweak the MCMC parameters to your liking.  After the specified number of MCMC iterations, your model is ready for pointwise inference by using the last ensemble in the chain.
 
 .. code-block:: python
 
-   model.train(X,Y, total_iters=100)
+   model.fit(X,Y)
    Yhat = model.predict(X)
    print((Y-Yhat)**2/np.std(Y)) # relative error
 
@@ -100,10 +99,62 @@ In particular, note the need to set the `scoring = 'neg_root_mean_squared_error'
 
 Also, when using a method like `RandomizedSearchCV`, be careful to supply appropriate distributions.  Here, `l` takes discrete values, so we specify a discrete Poisson probability distribution to sample from.  Note, however, that this distribution is *not* the distribution BARN uses for internal MCMC transitions.  This distribution is only for CV sampling the prior parameters.
 
+Visualization Example
+~~~~~~~~~~~~~~~~~~~~~
+
+Though BARN is implemented as an `sklearn` regression class and you can use it with any compatible visualization library, we also have some built-in methods.  The first is `model.viz`.  After training, this creates a plot of predicted vs target values, both for initial BARN (i.e. before training) and final results.
+
+.. code-block:: python
+
+   from sklearn import datasets
+   from sklearn.model_selection import train_test_split
+   from barmpy.barn import BARN, NN
+   import numpy as np
+   from sklearn.decomposition import PCA
+   from sklearn.preprocessing import StandardScaler
+
+   db = datasets.load_diabetes()
+   Xtr, Xte, Ytr, Yte = train_test_split(db.data, db.target, test_size=0.2, random_state=0)
+
+   # rescale inputs with PCA (and output normalized)
+   Xtr_o = np.copy(Xtr)
+   Xte_o = np.copy(Xte)
+   scale_x = PCA(n_components=Xtr.shape[1], whiten=False)
+   scale_x.fit(Xtr)
+   Xtr = scale_x.transform(Xtr_o)
+   Xte = scale_x.transform(Xte_o)
+   Ytr_o = np.copy(Ytr)
+   Yte_o = np.copy(Yte)
+   scale_y = StandardScaler() # no need to PCA
+   scale_y.fit(Ytr.reshape((-1,1)))
+   Ytr = scale_y.transform(Ytr_o.reshape((-1,1))).reshape(-1)
+   Yte = scale_y.transform(Yte_o.reshape((-1,1))).reshape(-1)
+
+   model = BARN(num_nets=10, dname='example',
+      l=1,
+      act='logistic',
+      epochs=100,
+      n_iter=100)
+   model.fit(Xtr, Ytr, Xte=Xte, Yte=Yte)
+   model.viz(outname='viz_test.png', initial=True)
+
+.. image:: viz_test.png
+  :width: 600
+  :alt: Left scatterplot shows initial BARN results.  Prediction vs Target values look like flat horizontal line.  Training R2 is 0.07 while test RMSE is 0.88.  On the right is a similar scatterplot showing trained BARN results.  The points start to track the goal 1-1 correspondence.  Training R2 is 0.56 while test RMSE is 0.76, an improvement.
+
+We also have tool to view the validation error progression over the MCMC iterations.  This can be helpful to assess convergence.  Reusing the above model, it looks like this particular BARN model isn't converging well.
+
+.. code-block:: python
+
+   model.phi_viz(outname='', close=False)
+
+.. image:: phi_viz.png
+  :width: 600
+  :alt: Line plot showing error of each MCMC iteration ensemble.  Error bounces up and down, not clearly converging.
+
 Coming Soon
 ~~~~~~~~~~~
 
-* Visualization example
 * Tweaking MCMC parameters
 
 .. _sklearn: https://scikit-learn.org/

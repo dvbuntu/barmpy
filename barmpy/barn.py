@@ -524,7 +524,8 @@ class BARN(BaseEstimator, RegressorMixin):
         plt.xlabel('MCMC Iteration')
         plt.ylabel('RMSE')
         plt.title(f'MCMC Error Progression')
-        fig.savefig(outname)
+        if outname:
+            fig.savefig(outname)
         if close:
             plt.close()
         return fig
