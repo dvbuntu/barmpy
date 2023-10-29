@@ -11,7 +11,7 @@ First, we focus on "regression" problems, where there is floating point output, 
 An approach like linear regression assumes `f(x) = \sum w_j x_j`, i.e. a weighted sum of the inputs.  In ordinary linear regression (OLS), we find the weights, `w_j`, that minimize a loss function, `L = \sum_i (y_i - f(x_i))^2`, also called the "squared error loss".  If we average `L` over the number of data points, when we have a "mean squared error" or MSE.
 
 Bayesian Additive Regression Models
-===================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Our methods like BARN also seek to minimize the MSE, but we posit a different form for `f`, so we need a different optimization procedure.  We will in fact learn `k` different functions, `f_1,f_2,\ldots, f_k` and aggregate them so `f(x) = \sum_j f_j(x)`.  This is known as model ensembling.
 
@@ -35,4 +35,4 @@ If we have these for both the old and new model, then we can compute an acceptan
 
 .. math:: \alpha = min(1, \frac{T(M'|M)p(y|M',x)p(M')}{T(M|M')p(y|M,x)p(M)})
 
-If a uniform random number between 0 and 1 is less than this `\alpha`, then we set `f_1=M'`, else we leave it as `M'.  In this case, we take just a single step; then we will fix `f_1`, free `f_2`, recompute the residual, and repeat the process.  Cycling through each of the models in the ensemble is one step in the MCMC process; we will probably go for hundreds of iterations.
+If a uniform random number between 0 and 1 is less than this `\alpha`, then we set `f_1=M'`, else we leave it as `M'`.  In this case, we take just a single step; then we will fix `f_1`, free `f_2`, recompute the residual, and repeat the process.  Cycling through each of the models in the ensemble is one step in the MCMC process; we will probably go for hundreds of iterations.
