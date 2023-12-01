@@ -157,7 +157,7 @@ class NN(object):
         '''
         return pmf(self.num_nodes, self.l)
 
-    def log_likelihood(self, X, Y):
+    def log_likelihood(self, X, Y, std):
         '''
         Log likelihood of `NN` assuming normally distributed errors.
         '''
@@ -165,7 +165,8 @@ class NN(object):
         yhat = np.squeeze(self.model.predict(X))
         resid = Y - yhat
         # compute stddev of these
-        std = np.std(resid) # maybe use std prior here?
+        #std = np.std(resid) # maybe use std prior here?
+        #std = self.std
         # normal likelihood
         return np.sum(scipy.stats.norm.logpdf(resid, 0, std))
 
@@ -292,18 +293,18 @@ else:
 
 # total acceptable of moving from N to Np given data XY
 # TODO: double check this
-def A(Np, N, X, Y, q=0.5):
+def A(Np, N, X, Y, sigma, q=0.5):
     '''
     Acceptance ratio of moving from `N` to `Np` given data and 
-    transition probability `q`
+    transition probability `q` and current sigma est, `sigma`
 
     Only allows for 2 moves in state transition, grow/shrink
     '''
     # disallow empty network...or does this mean kill it off entirely?
     if Np.num_nodes < 1:
         return 0
-    num = Np.log_transition(N,q) + Np.log_likelihood(X, Y) + Np.log_prior()
-    denom = N.log_transition(Np,1-q) + N.log_likelihood(X, Y) + N.log_prior()
+    num = Np.log_transition(N,q) + Np.log_likelihood(X, Y, sigma) + Np.log_prior()
+    denom = N.log_transition(Np,1-q) + N.log_likelihood(X, Y, sigma) + N.log_prior()
     # assumes only 2 inverse types of transition
     return min(1, np.exp(num-denom))
 
@@ -333,6 +334,8 @@ class BARN(BaseEstimator, RegressorMixin):
             callbacks=dict(),
             reg=REG,
             act=ACT,
+            nu=3,
+            qq=0.9 # quantile for sigma prior to compute lambda
             ):
         self.num_nets = num_nets
         # check that transition probabilities look like list of numbers
@@ -370,6 +373,8 @@ class BARN(BaseEstimator, RegressorMixin):
         self.callbacks = callbacks
         self.reg = reg
         self.act = act
+        self.nu = nu
+        self.qq = qq
         if init_neurons is None:
             self.init_neurons = 1
         else:
@@ -385,6 +390,22 @@ class BARN(BaseEstimator, RegressorMixin):
             self.n_features_in_ = n_features_in_
         self.cyberspace = [self.NN(self.init_neurons, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=n_features_in_, batch_size=self.batch_size, solver=self.solver, tol=self.tol, reg=self.reg, act=self.act) for i in range(self.num_nets)]
         self.initialized=True
+
+    def sample_sigma(self):
+        '''
+        Sample model sigma from posterior distribution (another inverse gamma)
+        '''
+        n = self.Xtr.shape[0]
+        preds = np.sum([N.predict(self.Xtr) for N in self.cyberspace], axis=0)
+        sse = np.sum((self.Ytr-preds)**2)
+        post_alpha = self.prior_alpha + n/2
+        post_beta = 2/(2/self.prior_beta + sse)
+        return scipy.stats.invgamma.rvs(post_alpha, scale=1/post_beta)
+        #dof = (self.nu + n) # good, based on invchi2 origin
+        #tau_sq = (self.nu * self.sigma0+nu1)/dof
+        #a =  dof/2
+        #s = dof*tau_sq/2
+        #return scipy.stats.invgamma.rvs(a, scale=s)
 
     def fit(self, X, Y, Xva=None, Yva=None, Xte=None, Yte=None, n_iter=None):
         '''
@@ -432,6 +453,20 @@ class BARN(BaseEstimator, RegressorMixin):
         if Xte is not None:
             Yh = np.sum([N.predict(Xte) for N in self.cyberspace], axis=0)
             self.Yte_init = np.copy(Yh)
+
+        # Compute initial sigma guess from simple Y var for now, OLS fit later
+        ## this is intended to be an overestimate
+        sigma_hat = np.var(Ytr)
+        ff = lambda t2: (qq-scipy.stats.invgamma.cdf(sigma_hat, self.nu/2, scale=self.nu*t2/2))**2
+        #t2 = scipy.optimize.bisect(ff, 0, 100)
+        self.t2 = scipy.optimize.minimize(ff, 1, method='nelder-mead').x # doesn't need to be that close
+        self.prior_alpha = self.nu/2
+        self.prior_beta = 2/(self.nu*self.t2)
+        # return StatToolbox.sample_from_inv_gamma((hyper_nu + es.length) / 2, 2 / (sse + hyper_nu * hyper_lambda)); from bartmachine
+        #self.sigma0 = scipy.stats.invgamma.rvs(self.nu/2, scale=self.nu*self.t2/2)
+
+        # initial sigma sample
+        self.sigma = self.sample_sigma()
 
         self.accepted = 0
         self.phi = np.zeros(n_iter)
@@ -482,7 +517,7 @@ class BARN(BaseEstimator, RegressorMixin):
                         else:
                             Xcomp = Xtr
                             Rcomp = Rtr
-                        if np.random.random() < A(Np, N, Xcomp, Rcomp, q):
+                        if np.random.random() < A(Np, N, Xcomp, Rcomp, self.sigma, q):
                             self.cyberspace[j] = Np
                             self.accepted += 1
                             self.ntrans_iter[i] += 1
