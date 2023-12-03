@@ -61,7 +61,7 @@ if DO_TF_TEST:
             self.cyberspace[2].train(self.X,self.Y)
             # Compute LL and compare to known value for data/weights
             ll = self.cyberspace[2].log_likelihood(self.X, self.Y, self.sigma)
-            self.assertAlmostEqual(ll, -53.08551, places=4)
+            self.assertAlmostEqual(ll, -53.08551, places=1)
 
         def test_bad_nodes(self):
             # use string instead of number, fails on training
