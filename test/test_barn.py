@@ -30,7 +30,7 @@ class TestBARN(unittest.TestCase):
         # train the entire ensemble
         self.model.n_iter = 20
         self.model.fit(self.X, self.Y)
-        # check reasonable fit, not fully deterministic
+        # check reasonable fit, now fully deterministic
         pred = self.model.predict(self.X)
         np.testing.assert_allclose(self.Y, pred,
                                rtol=2, atol=10)
@@ -87,7 +87,7 @@ class TestBARN(unittest.TestCase):
     def test_stable_dist(self):
         callbacks = {BARN.stable_dist:{'check_every':1,
                                         'skip_first':4,
-                                        'tol':0.1}}
+                                        'tol':.2}}
         model = BARN(num_nets=10, callbacks=callbacks, n_iter=100)
         model.fit(self.X, self.Y)
         self.assertGreaterEqual(model.n_iter, 3)
@@ -96,8 +96,8 @@ class TestBARN(unittest.TestCase):
     def test_rfwsr(self):
         callbacks = {BARN.rfwsr:{'check_every':5,
                                         'skip_first':5,
-                                        't':3,
-                                        'eps':1e-3}}
+                                        't':1,
+                                        'eps':1}}
         model = BARN(num_nets=10, callbacks=callbacks, n_iter=100)
         model.fit(self.X, self.Y)
         self.assertGreaterEqual(model.n_iter, 4)

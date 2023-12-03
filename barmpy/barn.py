@@ -353,6 +353,7 @@ class BARN(BaseEstimator, RegressorMixin):
         self.trans_options = trans_options
         self.dname = dname
         self.random_state = random_state
+        self.np_random_state = np.random.RandomState(seed=random_state)
         use_tf = use_tf & HAVE_TF
         if use_tf:
             self.NN = TF_NN
@@ -400,7 +401,8 @@ class BARN(BaseEstimator, RegressorMixin):
         sse = np.sum((self.Ytr-preds)**2)
         post_alpha = self.prior_alpha + n/2
         post_beta = 2/(2/self.prior_beta + sse)
-        return scipy.stats.invgamma.rvs(post_alpha, scale=1/post_beta)
+        return scipy.stats.invgamma.rvs(post_alpha, scale=1/post_beta,
+                    random_state=self.np_random_state)
         #dof = (self.nu + n) # good, based on invchi2 origin
         #tau_sq = (self.nu * self.sigma0+nu1)/dof
         #a =  dof/2
@@ -457,7 +459,7 @@ class BARN(BaseEstimator, RegressorMixin):
         # Compute initial sigma guess from simple Y var for now, OLS fit later
         ## this is intended to be an overestimate
         sigma_hat = np.var(Ytr)
-        ff = lambda t2: (qq-scipy.stats.invgamma.cdf(sigma_hat, self.nu/2, scale=self.nu*t2/2))**2
+        ff = lambda t2: (self.qq-scipy.stats.invgamma.cdf(sigma_hat, self.nu/2, scale=self.nu*t2/2))**2
         #t2 = scipy.optimize.bisect(ff, 0, 100)
         self.t2 = scipy.optimize.minimize(ff, 1, method='nelder-mead').x # doesn't need to be that close
         self.prior_alpha = self.nu/2
@@ -499,15 +501,15 @@ class BARN(BaseEstimator, RegressorMixin):
                         # grab current net in this position
                         N = self.cyberspace[j]
                         # create proposed change
-                        choice = np.random.choice(self.trans_options, p=self.trans_probs)
+                        choice = self.np_random_state.choice(self.trans_options, p=self.trans_probs)
                         if choice == 'grow':
-                            Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, batch_size=self.batch_size, solver=self.solver, tol=self.tol, reg=self.reg, act=self.act)
+                            Np = self.NN(N.num_nodes+1, weight_donor=N, l=N.l, lr=N.lr, r=self.np_random_state.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, batch_size=self.batch_size, solver=self.solver, tol=self.tol, reg=self.reg, act=self.act)
                             q = self.trans_probs[0]
                         elif N.num_nodes-1 == 0:
                             # TODO: better handle zero neuron case, don't just skip
                             continue # don't bother building empty model
                         else:
-                            Np = self.NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=np.random.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, solver=self.solver, tol=self.tol, reg=self.reg, act=self.act)
+                            Np = self.NN(N.num_nodes-1, weight_donor=N, l=N.l, lr=N.lr, r=self.np_random_state.randint(BIG), x_in=self.n_features_in_, epochs=self.epochs, solver=self.solver, tol=self.tol, reg=self.reg, act=self.act)
                             q = self.trans_probs[1]
                         Np.train(Xtr,Rtr)
                         # determine if we should keep it
@@ -517,7 +519,7 @@ class BARN(BaseEstimator, RegressorMixin):
                         else:
                             Xcomp = Xtr
                             Rcomp = Rtr
-                        if np.random.random() < A(Np, N, Xcomp, Rcomp, self.sigma, q):
+                        if self.np_random_state.random() < A(Np, N, Xcomp, Rcomp, self.sigma, q):
                             self.cyberspace[j] = Np
                             self.accepted += 1
                             self.ntrans_iter[i] += 1
