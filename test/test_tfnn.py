@@ -17,6 +17,7 @@ if DO_TF_TEST:
             # Setup linear relationship as test data
             self.X = np.arange(20).reshape((10,2))
             self.Y = self.X[:,0] + 2*self.X[:,1]
+            self.sigma = np.std(self.Y)
 
         def test_logprior(self):
             priors = [nn.log_prior() for nn in self.cyberspace]
@@ -59,7 +60,7 @@ if DO_TF_TEST:
             # Train the last network
             self.cyberspace[2].train(self.X,self.Y)
             # Compute LL and compare to known value for data/weights
-            ll = self.cyberspace[2].log_likelihood(self.X, self.Y)
+            ll = self.cyberspace[2].log_likelihood(self.X, self.Y, self.sigma)
             self.assertAlmostEqual(ll, -53.08551, places=4)
 
         def test_bad_nodes(self):
