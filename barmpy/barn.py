@@ -25,7 +25,8 @@ INFO = np.iinfo(np.int32)
 SMALL = INFO.min + 1
 BIG = INFO.max - 1
 REG = 0.01 # regularization
-ACT = 'relu'
+ACT = 'logistic'
+#ACT = 'relu'
 
 class NN(object):
     '''
@@ -401,8 +402,8 @@ class BARN(BaseEstimator, RegressorMixin):
         sse = np.sum((self.Ytr-preds)**2)
         post_alpha = self.prior_alpha + n/2
         post_beta = 2/(2/self.prior_beta + sse)
-        return scipy.stats.invgamma.rvs(post_alpha, scale=1/post_beta,
-                    random_state=self.np_random_state)
+        return np.sqrt(scipy.stats.invgamma.rvs(post_alpha, scale=1/post_beta,
+                    random_state=self.np_random_state))
         #dof = (self.nu + n) # good, based on invchi2 origin
         #tau_sq = (self.nu * self.sigma0+nu1)/dof
         #a =  dof/2
@@ -458,12 +459,12 @@ class BARN(BaseEstimator, RegressorMixin):
 
         # Compute initial sigma guess from simple Y var for now, OLS fit later
         ## this is intended to be an overestimate
-        sigma_hat = np.var(Ytr)
-        ff = lambda t2: (self.qq-scipy.stats.invgamma.cdf(sigma_hat, self.nu/2, scale=self.nu*t2/2))**2
+        sigma_hat = np.std(Ytr)
+        ff = lambda bb: (self.qq-scipy.stats.invgamma.cdf(sigma_hat**2, self.nu/2, scale=bb))**2
         #t2 = scipy.optimize.bisect(ff, 0, 100)
-        self.t2 = scipy.optimize.minimize(ff, 1, method='nelder-mead').x # doesn't need to be that close
+        self.prior_beta = 1/scipy.optimize.minimize(ff, 1, method='nelder-mead').x # doesn't need to be that close
         self.prior_alpha = self.nu/2
-        self.prior_beta = 2/(self.nu*self.t2)
+        #self.prior_beta = 2/(self.nu*self.t2)
         # return StatToolbox.sample_from_inv_gamma((hyper_nu + es.length) / 2, 2 / (sse + hyper_nu * hyper_lambda)); from bartmachine
         #self.sigma0 = scipy.stats.invgamma.rvs(self.nu/2, scale=self.nu*self.t2/2)
 
@@ -472,6 +473,7 @@ class BARN(BaseEstimator, RegressorMixin):
 
         self.accepted = 0
         self.phi = np.zeros(n_iter)
+        self.sigmas = np.zeros(n_iter)
         self.ntrans_iter = np.zeros(n_iter)
         self.actual_num_neuron = np.zeros((self.n_iter,
                                            self.num_nets),
@@ -535,6 +537,9 @@ class BARN(BaseEstimator, RegressorMixin):
                     # overall validation error at this MCMC iteration
                     self.phi[i] = np.sqrt(np.mean((Rphi - S_phi[j])**2))
                     self.actual_num_neuron[i] = [m.num_nodes for m in self.cyberspace]
+                    self.sigma = self.sample_sigma()
+                    self.sigmas[i] = self.sigma
+
             except JackPot:
                 # indicates we ended early
                 self.n_iter = i-1
