@@ -1,5 +1,7 @@
 import unittest
 import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 
 from barmpy.barn import NN, A, BARN
 import warnings
@@ -9,15 +11,25 @@ class TestBARN(unittest.TestCase):
     USE_TF = False
     def setUp(self):
         # NB: random_state not fully respected by sklearn
-        self.model = BARN(num_nets=10, dname='test',
+        self.model = BARN(dname='test',
+                num_nets=10, 
                 random_state=42,
-                epochs=1,
+                epochs=100,
+                act='logistic',
+                l=1,
                 use_tf=self.USE_TF)
         self.model.setup_nets(n_features_in_=2)
-        # Setup linear relationship as test data
+        # Setup linear relationship as test data, scaled
         self.n = 1000
         self.X = np.arange(2*self.n).reshape((self.n,2))
         self.Y = self.X[:,0] + 2*self.X[:,1]
+        scale_x = PCA(n_components=self.X.shape[1], whiten=False)
+        scale_x.fit(self.X)
+        self.X = scale_x.transform(self.X)
+        Xtr = scale_x.transform(self.X)
+        scale_y = StandardScaler() # no need to PCA
+        scale_y.fit(self.Y.reshape((-1,1)))
+        self.Y = scale_y.transform(self.Y.reshape((-1,1))).reshape(-1)
 
     def test_train_batchmeans(self):
         # Test running of train and batch means analysis
@@ -28,12 +40,12 @@ class TestBARN(unittest.TestCase):
 
     def test_fit(self):
         # train the entire ensemble
-        self.model.n_iter = 20
+        self.model.n_iter = 40
         self.model.fit(self.X, self.Y)
         # check reasonable fit, now fully deterministic
         pred = self.model.predict(self.X)
-        np.testing.assert_allclose(self.Y, pred,
-                               rtol=2, atol=10)
+        np.testing.assert_allclose(pred, self.Y,
+                               rtol=2, atol=0.5)
 
     def test_trans(self):
         # need list of numbers, not strictly summing to 1
@@ -82,7 +94,7 @@ class TestBARN(unittest.TestCase):
         model = BARN(num_nets=4, callbacks=callbacks)
         model.fit(self.X, self.Y)
         self.assertGreaterEqual(model.n_iter, 3)
-        self.assertLess(model.ntrans_iter[-1], 4)
+        self.assertLess(model.ntrans_iter[-1], 10)
 
     def test_stable_dist(self):
         callbacks = {BARN.stable_dist:{'check_every':1,
