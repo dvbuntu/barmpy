@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats
 # use sklearn for now, could upgrade to keras later if we want
-from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.base import BaseEstimator, RegressorMixin, ClassifierMixin
 import sklearn.neural_network as sknn
 from sklearn.utils import check_random_state as crs
 import sklearn.model_selection as skms
@@ -309,7 +309,7 @@ def A(Np, N, X, Y, sigma, q=0.5):
     # assumes only 2 inverse types of transition
     return min(1, np.exp(num-denom))
 
-class BARN(BaseEstimator, RegressorMixin):
+class BARN_base(BaseEstimator):
     '''
     Bayesian Additive Regression Networks ensemble.
     
@@ -336,7 +336,7 @@ class BARN(BaseEstimator, RegressorMixin):
             reg=REG,
             act=ACT,
             nu=3,
-            qq=0.9 # quantile for sigma prior to compute lambda
+            qq=0.9, # quantile for sigma prior to compute lambda
             ):
         self.num_nets = num_nets
         # check that transition probabilities look like list of numbers
@@ -410,6 +410,20 @@ class BARN(BaseEstimator, RegressorMixin):
         #s = dof*tau_sq/2
         #return scipy.stats.invgamma.rvs(a, scale=s)
 
+    def compute_res(self, X, Y, i, S=None):
+        '''
+        Compute the residual for the current iteration, returning total prediction as well as target without contribution from model i.
+
+        Optionally use an existing S from previous iteration
+        '''
+        if S is None:
+            S = np.array([N.predict(X) for N in self.cyberspace])
+        R = Y - (np.sum(S, axis=0) - S[i])
+        return S, R
+
+    def update_target(self, X, Y_old):
+        return Y_old
+
     def fit(self, X, Y, Xva=None, Yva=None, Xte=None, Yte=None, n_iter=None):
         '''
         Overall BARN fitting method.
@@ -478,18 +492,36 @@ class BARN(BaseEstimator, RegressorMixin):
         self.actual_num_neuron = np.zeros((self.n_iter,
                                            self.num_nets),
                                            dtype=np.uint8)
+
+        Ytr_orig = np.copy(Ytr)
+        if Yva is not None:
+            Yva_orig = np.copy(Yva)
+        else:
+            Yva_orig = None
+
         if n_iter > 0:
+            Ytr = self.update_target(Xtr, Ytr_orig)
+            if Yva is not None:
+                Yva = self.update_target(Xva, Yva_orig)
             # setup residual array
-            S_tr = np.array([N.predict(Xtr) for N in self.cyberspace])
-            Rtr = Ytr - (np.sum(S_tr, axis=0) - S_tr[-1])
+            S_tr, Rtr = self.compute_res(Xtr, Ytr, -1, None)
             if Xva is not None:
-                S_va = np.array([N.predict(Xva) for N in self.cyberspace])
-                Rva = Yva - (np.sum(S_va, axis=0) - S_va[-1])
+                S_va, Rva = self.compute_res(Xva, Yva, -1, None)
             try:
                 for i in tqdm(range(n_iter)):
                     self.i = i # only for checking callbacks
                     for callback,kwargs in self.callbacks.items():
                         res = callback(self, **kwargs)
+
+                    if i > 0: #TODO bin
+                    #if False:
+                        # latent Z sampling for binary class (ignored for regression)
+                        Ytr = self.update_target(Xtr, Ytr_orig)
+                        if Yva is not None:
+                            Yva = self.update_target(Xva, Yva_orig)
+                        S_tr, Rtr = self.compute_res(Xtr, Ytr, -1, S_tr)
+                        if Xva is not None:
+                            S_va, Rva = self.compute_res(Xva, Yva, -1, S_va)
 
                     # gibbs sample over the nets
                     for j in range(self.num_nets):
@@ -778,6 +810,40 @@ class BARN(BaseEstimator, RegressorMixin):
                 np_out='', outfile='', burn=burn)
         if t*sig/np.sqrt(num)<= eps*gbar: # removed 1/n term on LHS
             raise JackPot
+
+class BARN(BARN_base, RegressorMixin):
+    pass
+
+class BARN_bin(BARN_base, ClassifierMixin):
+    '''
+    Bayesian Additive Regression Networks ensemble for binary classification.
+    '''
+    def sample_sigma(self):
+        return 1
+
+    def predict(self, X):
+        return scipy.stats.norm.cdf(self.predict_z(X))
+
+    def predict_z(self, X):
+        '''
+        Return prediction as z-score
+        '''
+        return np.sum([N.predict(X) for N in self.cyberspace], axis=0)
+
+    def update_target(self, X, Y_old):
+        '''
+        Estimate latent $z_i$ values with current model and data.
+        
+        Essentially, make prediction of z-score with current model and
+        clip to zero if sign is wrong.
+
+        $z_i ~ max(N(g(X),1), 0) y_i + min(N(g(X),1), 0) (1-y_i) $
+        '''
+
+        pz = self.predict_z(X)
+        sample = scipy.stats.norm.rvs(loc=pz, random_state=self.np_random_state)
+        return np.clip(sample*Y_old,0, None) + np.clip(sample*(1-np.array(Y_old)),None, 0)
+
 
 
 # A way to break out of nested for loops without trying to be clever with flags
