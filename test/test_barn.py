@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 
-from barmpy.barn import NN, A, BARN
+from barmpy.barn import NN, A, BARN, BARN_bin
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -46,6 +46,25 @@ class TestBARN(unittest.TestCase):
         pred = self.model.predict(self.X)
         np.testing.assert_allclose(pred, self.Y,
                                rtol=2, atol=0.5)
+
+    def test_bin(self):
+        # NB: random_state not fully respected by sklearn
+        self.model_bin = BARN_bin(dname='test',
+                num_nets=10, 
+                random_state=42,
+                epochs=100,
+                act='logistic',
+                l=1,
+                use_tf=self.USE_TF)
+        self.model_bin.setup_nets(n_features_in_=2)
+        self.Ybin = 1*(self.Y>0)
+        self.model_bin.n_iter = 40
+        self.model_bin.fit(self.X, self.Ybin)
+        # check reasonable fit, should be fully accurate
+        pred = self.model_bin.predict(self.X)
+        np.testing.assert_allclose(np.round(pred), self.Ybin,
+                               rtol=0, atol=0)
+
 
     def test_trans(self):
         # need list of numbers, not strictly summing to 1
