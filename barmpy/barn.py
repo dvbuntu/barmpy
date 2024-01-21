@@ -387,6 +387,7 @@ class BARN_base(BaseEstimator):
         self.act = act
         self.nu = nu
         self.qq = qq
+        self._binary = False # private option for internal testing, *does not* make BARN binary classifier (use BARN_bin for that)
         if init_neurons is None:
             self.init_neurons = 1
         else:
@@ -400,7 +401,7 @@ class BARN_base(BaseEstimator):
             n_features_in_ = self.n_features_in_
         elif self.n_features_in_ is None:
             self.n_features_in_ = n_features_in_
-        self.cyberspace = [self.NN(self.init_neurons, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=n_features_in_, batch_size=self.batch_size, solver=self.solver, tol=self.tol, reg=self.reg, act=self.act, binary=False) for i in range(self.num_nets)]
+        self.cyberspace = [self.NN(self.init_neurons, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=n_features_in_, batch_size=self.batch_size, solver=self.solver, tol=self.tol, reg=self.reg, act=self.act, binary=self._binary) for i in range(self.num_nets)]
         self.initialized=True
 
     def sample_sigma(self):
