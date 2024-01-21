@@ -46,7 +46,8 @@ class NN(object):
             solver=None,
             tol=1e-3,
             reg=REG,
-            act=ACT):
+            act=ACT,
+            binary=False):
         self.num_nodes = num_nodes
         self.x_in = x_in
         # make an NN with a single hidden layer with num_nodes nodes
@@ -56,7 +57,12 @@ class NN(object):
                 solver = 'lbfgs'
             else:
                 solver = 'adam'
-        self.model = sknn.MLPRegressor([num_nodes],
+        # this binary is only for generic NN usage, not for BARN (which still uses regression networks underneath)
+        if binary:
+            mlp = sknn.MLPClassifier
+        else:
+            mlp = sknn.MLPRegressor
+        self.model = mlp([num_nodes],
                 learning_rate_init=lr,
                 random_state=r,
                 max_iter=epochs,
@@ -86,7 +92,7 @@ class NN(object):
         Save NN to disk as a NumPy archive
         '''
         params = np.array([self.num_nodes, self.l, self.lr, self.r,
-            self.epochs, self.x_in, self.reg, self.act])
+            self.epochs, self.x_in, self.reg, self.act, self.binary])
         coefs_, intercepts_ = self.model.get_weights()
         np.savez_compressed(fname, params=params,
                 coefs_=coefs_,
@@ -132,6 +138,9 @@ class NN(object):
         Read a NumPy archive of an NN (such as created by `save`) into a new NN
         '''
         network = np.load(fname)
+        # enable loading old models, which were never binary
+        if len(network['params']) == 8:
+            network['params'] = network['params'].tolist() + [False]
         N = NN(network['params'][0],
                l=network['params'][1],
                lr=network['params'][2],
@@ -140,6 +149,7 @@ class NN(object):
                x_in=network['params'][5],
                reg=network['params'][6],
                act=network['params'][7],
+               binary=network['params'][8],
                )
         donor_num_nodes = N.num_nodes
         donor_weights = network['coefs_']
@@ -390,7 +400,7 @@ class BARN_base(BaseEstimator):
             n_features_in_ = self.n_features_in_
         elif self.n_features_in_ is None:
             self.n_features_in_ = n_features_in_
-        self.cyberspace = [self.NN(self.init_neurons, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=n_features_in_, batch_size=self.batch_size, solver=self.solver, tol=self.tol, reg=self.reg, act=self.act) for i in range(self.num_nets)]
+        self.cyberspace = [self.NN(self.init_neurons, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=n_features_in_, batch_size=self.batch_size, solver=self.solver, tol=self.tol, reg=self.reg, act=self.act, binary=False) for i in range(self.num_nets)]
         self.initialized=True
 
     def sample_sigma(self):

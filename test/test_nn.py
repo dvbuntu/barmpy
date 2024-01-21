@@ -80,6 +80,14 @@ class TestNN(unittest.TestCase):
         except TypeError:
             pass
             
+    def test_binary(self):
+        nn = NN(binary=True)
+        Ybin = np.round(np.arange(10)/10)
+        nn.train(self.X, Ybin)
+        pred = nn.predict(self.X)
+        # verify range
+        self.assertLessEqual(np.max(pred), 1)
+        self.assertLessEqual(0, np.min(pred))
 
 
 if __name__ == '__main__':
