@@ -5,7 +5,7 @@ here = path.abspath(path.dirname(__file__))
 
 setup(
     name='barmpy',
-    version='0.1.0',
+    version='1.0.0',
     description='Bayesian Additive Regression Models implementation for Python',
     url='https://github.com/dvbuntu/barmpy',
     author='Danielle Van Boxel',
