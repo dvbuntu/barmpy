@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "barmpy"
+version = "1.0.0"
+authors = [
+  { name="Danielle Van Boxel", email="vanboxel@math.arizona.edu" },
+]
+description = "Bayesian Additive Regression Models"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+[project.urls]
+Homepage = "https://github.com/dvbuntu/barmpy"
+Issues = "https://github.com/dvbuntu/barmpy/issues"
+Documentation = "https://dvbuntu.github.io/barmpy/"
