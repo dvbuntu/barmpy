@@ -603,7 +603,7 @@ class BARN_base(BaseEstimator):
         Visualize the `phi` parameter, validation error over time
         '''
         fig = plt.figure()
-        fig.set_size_inches(4,4)
+        fig.set_size_inches(5,5)
         # Plot phi results
         plt.plot(self.phi)
         plt.xlabel('MCMC Iteration')
