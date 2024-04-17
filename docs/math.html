@@ -37,12 +37,11 @@
             
   <section id="math">
 <h1>Math<a class="headerlink" href="#math" title="Permalink to this heading">¶</a></h1>
-<p>We briefly describe some of the mathematics behind Bayesian Additive Regression Models like BART and BARN.  For more technical details, please see <a class="reference external" href="https://arxiv.org/abs/0806.3286">Bayesian Additive Regression Trees</a> and <a class="reference external" href="https://dvbuntu.github.io/talks/2022-08-01-barn">Bayesian Additive Regression Networks</a>.</p>
+<p>We briefly describe some of the mathematics behind Bayesian Additive Regression Models like BART and BARN.  For more technical details, please see <a class="reference external" href="https://arxiv.org/abs/0806.3286">Bayesian Additive Regression Trees</a> and <a class="reference external" href="https://arxiv.org/abs/2404.04425">Bayesian Additive Regression Networks</a>.</p>
 <p>First, we focus on “regression” problems, where there is floating point output, <span class="math notranslate nohighlight">\(y\)</span>, and a vector of floating point inputs, <span class="math notranslate nohighlight">\(x\)</span>, for each data point.  In general, we posit that there exists some function, <span class="math notranslate nohighlight">\(u\)</span>, such that <span class="math notranslate nohighlight">\(y = u(x) + \epsilon\)</span>, where <span class="math notranslate nohighlight">\(\epsilon\)</span> is a noise term.  Our objective is to find some <em>other</em> function, <span class="math notranslate nohighlight">\(f\)</span>, so that <span class="math notranslate nohighlight">\(f(x) \approx u(x)\)</span>, because if we knew <span class="math notranslate nohighlight">\(u\)</span>, we’d be done already.</p>
 <p>An approach like linear regression assumes <span class="math notranslate nohighlight">\(f(x) = \sum w_j x_j\)</span>, i.e. a weighted sum of the inputs.  In ordinary linear regression (OLS), we find the weights, <span class="math notranslate nohighlight">\(w_j\)</span>, that minimize a loss function, <span class="math notranslate nohighlight">\(L = \sum_i (y_i - f(x_i))^2\)</span>, also called the “squared error loss”.  If we average <span class="math notranslate nohighlight">\(L\)</span> over the number of data points, when we have a “mean squared error” or MSE.</p>
-</section>
 <section id="bayesian-additive-regression-models">
-<h1>Bayesian Additive Regression Models<a class="headerlink" href="#bayesian-additive-regression-models" title="Permalink to this heading">¶</a></h1>
+<h2>Bayesian Additive Regression Models<a class="headerlink" href="#bayesian-additive-regression-models" title="Permalink to this heading">¶</a></h2>
 <p>Our methods like BARN also seek to minimize the MSE, but we posit a different form for <span class="math notranslate nohighlight">\(f\)</span>, so we need a different optimization procedure.  We will in fact learn <span class="math notranslate nohighlight">\(k\)</span> different functions, <span class="math notranslate nohighlight">\(f_1,f_2,\ldots, f_k\)</span> and aggregate them so <span class="math notranslate nohighlight">\(f(x) = \sum_j f_j(x)\)</span>.  This is known as model ensembling.</p>
 <p>Well, so what does each <span class="math notranslate nohighlight">\(f_j\)</span> look like, and how do we find them all?  In BART, each <span class="math notranslate nohighlight">\(f_j\)</span> is a “Decision Tree”; it asks a series of questions about the input data in order to arrive at an output result.  In BARN, however, <span class="math notranslate nohighlight">\(f_j\)</span> is a small single hidden layer neural network.  While there exist standard methods to train both of these, we’re going to do something somewhat more involved.</p>
 <p>Really, there’s many sets of such models (trees or NNs) that would probably accurately model our data.  But maybe we also have some initial ideas on how big these models should be, because we want to avoid overfitting.  So really, there’s a probability distribution of models that both accurately model the data and account for our prior ideas.  This is exactly a Bayesian “posterior” estimate: the probability of the evidence under the model times the prior probability of the model.</p>
@@ -59,7 +58,8 @@
 <p>If we have these for both the old and new model, then we can compute an acceptance probability of replacing the old model with the new:</p>
 <div class="math notranslate nohighlight">
 \[\alpha = min(1, \frac{T(M'|M)p(y|M',x)p(M')}{T(M|M')p(y|M,x)p(M)})\]</div>
-<p>If a uniform random number between 0 and 1 is less than this <span class="math notranslate nohighlight">\(\alpha\)</span>, then we set <span class="math notranslate nohighlight">\(f_1=M'\)</span>, else we leave it as <span class="math notranslate nohighlight">\(M'.  In this case, we take just a single step; then we will fix `f_1\)</span>, free <span class="math notranslate nohighlight">\(f_2\)</span>, recompute the residual, and repeat the process.  Cycling through each of the models in the ensemble is one step in the MCMC process; we will probably go for hundreds of iterations.</p>
+<p>If a uniform random number between 0 and 1 is less than this <span class="math notranslate nohighlight">\(\alpha\)</span>, then we set <span class="math notranslate nohighlight">\(f_1=M'\)</span>, else we leave it as <span class="math notranslate nohighlight">\(M'\)</span>.  In this case, we take just a single step; then we will fix <span class="math notranslate nohighlight">\(f_1\)</span>, free <span class="math notranslate nohighlight">\(f_2\)</span>, recompute the residual, and repeat the process.  Cycling through each of the models in the ensemble is one step in the MCMC process; we will probably go for hundreds of iterations.</p>
+</section>
 </section>
 
 
@@ -69,7 +69,12 @@
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="index.html">BARMPy</a></h1>
+<p class="logo">
+  <a href="index.html">
+    <img class="logo" src="_static/barmpy_logo.png" alt="Logo"/>
+    
+  </a>
+</p>
 
 
 
@@ -81,8 +86,10 @@
 <h3>Navigation</h3>
 <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Math</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#bayesian-additive-regression-models">Bayesian Additive Regression Models</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Math</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#bayesian-additive-regression-models">Bayesian Additive Regression Models</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="barn.html">BARN</a></li>
 </ul>
 

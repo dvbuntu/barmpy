@@ -38,8 +38,10 @@
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="math.html">Math</a></li>
-<li class="toctree-l1"><a class="reference internal" href="math.html#bayesian-additive-regression-models">Bayesian Additive Regression Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="math.html">Math</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="math.html#bayesian-additive-regression-models">Bayesian Additive Regression Models</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="barn.html">BARN</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="barn.html#nn">NN</a></li>
 <li class="toctree-l2"><a class="reference internal" href="barn.html#barn-class">BARN Class</a></li>
@@ -47,13 +49,16 @@
 </li>
 </ul>
 </div>
-<p>BARMPy is a Python library to implement <a class="reference external" href="https://dvbuntu.github.io/talks/2022-08-01-barn">Bayesian Additive Regression Networks</a> (BARN, sometimes generalized to BAR*M* for generic <em>Models</em>), a machine learning method to ensemble together small models using Markov Chain Monte Carlo (MCMC) methods.  This approach takes much inspiration from <a class="reference external" href="https://arxiv.org/abs/0806.3286">Bayesian Additive Regression Trees</a> (BART).</p>
+<p>BARMPy is a Python library to implement <a class="reference external" href="https://arxiv.org/abs/2404.04425">Bayesian Additive Regression Networks</a> (BARN, sometimes generalized to BAR*M* for generic <em>Models</em>), a machine learning method to ensemble together small models using Markov Chain Monte Carlo (MCMC) methods.  This approach takes much inspiration from <a class="reference external" href="https://arxiv.org/abs/0806.3286">Bayesian Additive Regression Trees</a> (BART).</p>
 <p>BARN excels at accurately modeling a wide variety of regression problems with equal aplomb.  This does come with a cost, as running the MCMC iterations and training neural networks can be computationally intensive.  Problems with a thousand data points and ten features can take on the order of a second, but this varies with <em>difficulty</em> of the problem as much as the problem size itself.</p>
 </section>
 <section id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Permalink to this heading">¶</a></h1>
 <p>PyPi packages will be coming soon, but until then, you can install from the repository itself:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>git@github.com:dvbuntu/barmpy.git
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Current release</span>
+pip<span class="w"> </span>install<span class="w"> </span>barmpy
+<span class="c1"># Latest development version</span>
+git<span class="w"> </span>clone<span class="w"> </span>git@github.com:dvbuntu/barmpy.git
 pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>./barmpy
 </pre></div>
 </div>
@@ -68,6 +73,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 <li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
 <li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
 <li><p><a class="reference external" href="https://github.com/dvbuntu/barmpy">GitHub Repo</a></p></li>
+<li><p><a class="reference external" href="https://pypi.org/project/barmpy/">PyPi</a></p></li>
 </ul>
 </section>
 
@@ -78,7 +84,12 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="#">BARMPy</a></h1>
+<p class="logo">
+  <a href="#">
+    <img class="logo" src="_static/barmpy_logo.png" alt="Logo"/>
+    
+  </a>
+</p>
 
 
 
@@ -91,7 +102,6 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="math.html">Math</a></li>
-<li class="toctree-l1"><a class="reference internal" href="math.html#bayesian-additive-regression-models">Bayesian Additive Regression Models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="barn.html">BARN</a></li>
 </ul>
 

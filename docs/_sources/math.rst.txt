@@ -4,14 +4,14 @@
 Math
 ====
 
-We briefly describe some of the mathematics behind Bayesian Additive Regression Models like BART and BARN.  For more technical details, please see `Bayesian Additive Regression Trees <https://arxiv.org/abs/0806.3286>`_ and `Bayesian Additive Regression Networks <https://dvbuntu.github.io/talks/2022-08-01-barn>`_.  
+We briefly describe some of the mathematics behind Bayesian Additive Regression Models like BART and BARN.  For more technical details, please see `Bayesian Additive Regression Trees <https://arxiv.org/abs/0806.3286>`_ and `Bayesian Additive Regression Networks <https://arxiv.org/abs/2404.04425>`_.  
 
 First, we focus on "regression" problems, where there is floating point output, `y`, and a vector of floating point inputs, `x`, for each data point.  In general, we posit that there exists some function, `u`, such that `y = u(x) + \epsilon`, where `\epsilon` is a noise term.  Our objective is to find some *other* function, `f`, so that `f(x) \approx u(x)`, because if we knew `u`, we'd be done already.
 
 An approach like linear regression assumes `f(x) = \sum w_j x_j`, i.e. a weighted sum of the inputs.  In ordinary linear regression (OLS), we find the weights, `w_j`, that minimize a loss function, `L = \sum_i (y_i - f(x_i))^2`, also called the "squared error loss".  If we average `L` over the number of data points, when we have a "mean squared error" or MSE.
 
 Bayesian Additive Regression Models
-===================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Our methods like BARN also seek to minimize the MSE, but we posit a different form for `f`, so we need a different optimization procedure.  We will in fact learn `k` different functions, `f_1,f_2,\ldots, f_k` and aggregate them so `f(x) = \sum_j f_j(x)`.  This is known as model ensembling.
 
@@ -35,4 +35,4 @@ If we have these for both the old and new model, then we can compute an acceptan
 
 .. math:: \alpha = min(1, \frac{T(M'|M)p(y|M',x)p(M')}{T(M|M')p(y|M,x)p(M)})
 
-If a uniform random number between 0 and 1 is less than this `\alpha`, then we set `f_1=M'`, else we leave it as `M'.  In this case, we take just a single step; then we will fix `f_1`, free `f_2`, recompute the residual, and repeat the process.  Cycling through each of the models in the ensemble is one step in the MCMC process; we will probably go for hundreds of iterations.
+If a uniform random number between 0 and 1 is less than this `\alpha`, then we set `f_1=M'`, else we leave it as `M'`.  In this case, we take just a single step; then we will fix `f_1`, free `f_2`, recompute the residual, and repeat the process.  Cycling through each of the models in the ensemble is one step in the MCMC process; we will probably go for hundreds of iterations.

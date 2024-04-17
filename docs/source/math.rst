@@ -4,7 +4,7 @@
 Math
 ====
 
-We briefly describe some of the mathematics behind Bayesian Additive Regression Models like BART and BARN.  For more technical details, please see `Bayesian Additive Regression Trees <https://arxiv.org/abs/0806.3286>`_ and `Bayesian Additive Regression Networks <https://dvbuntu.github.io/talks/2022-08-01-barn>`_.  
+We briefly describe some of the mathematics behind Bayesian Additive Regression Models like BART and BARN.  For more technical details, please see `Bayesian Additive Regression Trees <https://arxiv.org/abs/0806.3286>`_ and `Bayesian Additive Regression Networks <https://arxiv.org/abs/2404.04425>`_.  
 
 First, we focus on "regression" problems, where there is floating point output, `y`, and a vector of floating point inputs, `x`, for each data point.  In general, we posit that there exists some function, `u`, such that `y = u(x) + \epsilon`, where `\epsilon` is a noise term.  Our objective is to find some *other* function, `f`, so that `f(x) \approx u(x)`, because if we knew `u`, we'd be done already.
 
