@@ -11,6 +11,7 @@ import sklearn.neural_network as sknn
 from sklearn.utils import check_random_state as crs
 import sklearn.model_selection as skms
 import sklearn.metrics as metrics
+from sklearn.exceptions import ConvergenceWarning
 import pickle
 import warnings
 HAVE_TF = True
@@ -37,7 +38,7 @@ class NN(object):
     def __init__(self,
             num_nodes=10,
             weight_donor=None,
-            l=10,
+            l=2,
             lr=0.01,
             r=42,
             epochs=20,
@@ -324,29 +325,57 @@ class BARN_base(BaseEstimator):
     Bayesian Additive Regression Networks ensemble.
     
     Specify and train an array of neural nets with Bayesian posterior.
+
+    Argument Descriptions:
+
+    * `act` - Activation function, 'logistic' or 'relu', passed to `NN`
+    * `batch_size` - batch size for gradient descent solvers, passed to `NN`
+    * `callbacks` - dictionary of callbacks, keyed by function with values being arguments passed to the callback
+    * `dname` - dataset name if saving output
+    * `epochs` - number of neural network training epochs for gradient descent solver
+    * `init_neurons` - number of neurons to initialize each network in the ensemble to
+    * `l` - prior distribution (Poisson) expected number of neurons for network in ensemble
+    * `lr` - learning rate for solvers
+    * `n_features_in_` - number of features expected in input data, can be set during `setup_nets` instead
+    * `n_iter` - maximum number of MCMC iterations to perform.  One iter is a pass through each network in the ensemble
+    * `nu` - chi-squared parameter for prior on model error, recommend leaving default
+    * `num_nets` - number of networks in the ensemble
+    * `qq` - quantile for error prior to compute lambda, recommend leaving default
+    * `random_state` - random seed for reproducible results
+    * `reg` - L1L2 regularization weight penalty on NN weights, passed to `NN`
+    * `silence_warnings` - flag to turn off convergence warnings from SciPy which may not be helpful
+    * `solver` - solver preference ('lbfgs' or 'adam'), use `None` to automatically select based on problem size, passed to `NN`
+    * `test_size` - fraction of data to use as held-back testing data if not supplying separate splits to `BARN.fit`
+    * `tol` - tolerance used in solver, passed to `NN`
+    * `trans_options` - possible state transition options as a list of strings
+    * `trans_probs` - probability of each state transition option, currently fixed for each option
+    * `use_tf` - flag to use TensorFlow backend for `NN`, recommend leaving `False` unless networks are large
+    * `warm_start` - flag to allow reusing previously trained ensemble for a given instance (`True`) or create a fresh ensemble with calling `BARN.fit` (`False`), irrelevant if only calling `BARN.fit` for an instance once
     '''
-    def __init__(self, num_nets=10,
-            trans_probs=[0.4, 0.6],
-            trans_options=['grow', 'shrink'],
-            dname='default_name',
-            random_state=42,
-            use_tf=False,
-            batch_size=512,
-            solver=None,
-            l=10,
-            lr=0.01,
-            epochs=10,
-            n_iter=10,
-            test_size=0.5,
-            warm_start=True,
-            n_features_in_=None,
-            init_neurons=None,
-            tol=1e-3,
-            callbacks=dict(),
-            reg=REG,
+    def __init__(self,
             act=ACT,
+            batch_size=512,
+            callbacks=dict(),
+            dname='default_name',
+            epochs=10,
+            init_neurons=None,
+            l=2,
+            lr=0.01,
+            n_features_in_=None,
+            n_iter=200,
             nu=3,
-            qq=0.9, # quantile for sigma prior to compute lambda
+            num_nets=10,
+            qq=0.9,
+            random_state=42,
+            reg=REG,
+            silence_warnings=True,
+            solver=None,
+            test_size=0.25,
+            tol=1e-3,
+            trans_options=['grow', 'shrink'],
+            trans_probs=[0.4, 0.6],
+            use_tf=False,
+            warm_start=True,
             ):
         self.num_nets = num_nets
         # check that transition probabilities look like list of numbers
@@ -392,6 +421,11 @@ class BARN_base(BaseEstimator):
             self.init_neurons = 1
         else:
             self.init_neurons = init_neurons
+        self.verbose = verbose
+
+        if silence_warnings:
+            warnings.filterwarnings("ignore", category=ConvergenceWarning)
+            warnings.filterwarnings("ignore", category=UserWarning)
 
     def setup_nets(self, n_features_in_=None):
         '''

@@ -16,11 +16,13 @@ Before building an ensemble, it's helpful to understand the core component that 
 BARN Class
 ----------
 
-Equipped with a core `NN` class above, we can train the entire ensemble following our Bayesian procedure. 
+Equipped with a core `NN` class above, we can train the entire ensemble following our Bayesian procedure.
 
-.. autoclass:: barmpy.barn.BARN
+.. autoclass:: barmpy.barn.BARN_base
    :members:
    :undoc-members:
+
+Both `barmpy.barn.BARN` (for regression) and `barmpy.barn.BARN_bin` (for binary classification) inherit from `barmpy.barn.BARN_base`.
 
 Example
 ~~~~~~~
@@ -50,12 +52,35 @@ Actually running the model is straightforward, but you can tweak the MCMC parame
    Yhat = model.predict(X)
    print((Y-Yhat)**2/np.std(Y)) # relative error
 
+Custom Callback Example
+~~~~~~~~~~~~~~~~~~~~~~~
+
+BARMPy also support custom model callbacks.  Callbacks are a way to run a routine in between MCMC iterations.  This is typically done to either log information or check for an early stopping condition.  We provide several callbacks in the library itself, though you can supply your own function as well.  We recommend `barmpy.barn.BARN_base.improvement` to check for early stopping with validation data (note such data will also be used for MCMC acceptance, but not NN training, if provided).  The set of all provided callbacks are:
+
+* `barmpy.barn.BARN_base.improvment` - Check if validation error has stopped improving, indicating model has started to overfit and training should stop
+* `barmpy.barn.BARN_base.rfwsr` - Relative fixed-width stopping rule to check if MCMC estimate has converged
+* `barmpy.barn.BARN_base.stable_dist` - Check if distribution of neuron counts is stable, indicating stationary distribution reached
+* `barmpy.barn.BARN_base.trans_enough` - Check if enough transitions were accepted to justify additional MCMC iterations toward stationary posterior
+
+To use a callback, we need to add it to a dictionary and pass that to the `callbacks` argument of `barmpy.barn.BARN` (or `barmpy.barn.BARN_bin`, as appropriate).  The key to the dictionary should be the Python function or method itself, while the values are additional arguments provided to that function.  Each iteration, we will call each callback function, passing the ensemble itself as the first argument (to enable access to its internals).
+
+Here is a small snippet showing how to use the `stable_dist` callback:
+
+.. code-block:: python
+
+   callbacks = {barmpy.barn.BARN.stable_dist:
+                   {'check_every':1,
+                   'skip_first':4}}
+   model = BARN(num_nets=10,
+               callbacks=callbacks,
+               n_iter=n_iter)
+
 CV Tuning Example
 ~~~~~~~~~~~~~~~~~
 
 BARN is implemented as an `sklearn`_ class, meaning we can use standard `sklearn`_ methods like `GridSearchCV` to tune the hyperparameters for the best possible result.  This does take considerably more processing power to test the various parameter configurations, so be mindful when considering the number of possible hyperparameter values.
 
-Much like `BART`_, we apply cross-validated hyperparameter tuning to set the priors (i.e. the expected number of neurons in a network, `l`).  But as with BART, we do not seek an *exact* match, only something that generally agrees with the data.  Below is a short series of examples using various `sklearn` approaches.
+Much like `BART`_, we apply cross-validated hyperparameter tuning to set the priors (i.e. the expected number of neurons in a network, `l`).  But as with BART, we do not seek an *exact* match, only something that generally agrees with the data.  Below is a short series of examples using various `sklearn`_ approaches.
 
 .. code-block:: python
 
