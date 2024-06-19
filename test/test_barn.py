@@ -134,6 +134,14 @@ class TestBARN(unittest.TestCase):
         self.assertGreaterEqual(model.n_iter, 4)
         self.assertLess(model.n_iter, 100)
 
+    def test_multidraw(self):
+        model = BARN(num_nets=4, n_iter=100,
+                     burn=50, ndraw=10)
+        model.fit(self.X, self.Y)
+        self.assertEqual(len(model.saved_draws), 10)
+
+
+
 class TestBARN_TF(TestBARN):
     USE_TF = True
 

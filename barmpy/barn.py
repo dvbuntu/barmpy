@@ -375,7 +375,10 @@ class BARN_base(BaseEstimator):
             trans_options=['grow', 'shrink'],
             trans_probs=[0.4, 0.6],
             use_tf=False,
+            verbose=False,
             warm_start=True,
+            ndraw=None,
+            burn=None
             ):
         self.num_nets = num_nets
         # check that transition probabilities look like list of numbers
@@ -423,9 +426,20 @@ class BARN_base(BaseEstimator):
             self.init_neurons = init_neurons
         self.verbose = verbose
 
+        self.silence_warnings = silence_warnings
         if silence_warnings:
             warnings.filterwarnings("ignore", category=ConvergenceWarning)
             warnings.filterwarnings("ignore", category=UserWarning)
+
+        if burn:
+            self.burn = burn
+        else:
+            self.burn = self.n_iter // 2
+        # TODO: compute batch means or autocorrelation on the fly to estimate number of samples to save
+        if ndraw:
+            self.save_every = min(self.n_iter - self.burn, max(1,(self.n_iter - self.burn)//ndraw))
+        else:
+            self.save_every = None
 
     def setup_nets(self, n_features_in_=None):
         '''
@@ -437,6 +451,7 @@ class BARN_base(BaseEstimator):
             self.n_features_in_ = n_features_in_
         self.cyberspace = [self.NN(self.init_neurons, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=n_features_in_, batch_size=self.batch_size, solver=self.solver, tol=self.tol, reg=self.reg, act=self.act, binary=self._binary) for i in range(self.num_nets)]
         self.initialized=True
+        self.saved_draws = []
 
     def sample_sigma(self):
         '''
@@ -616,6 +631,8 @@ class BARN_base(BaseEstimator):
                     self.actual_num_neuron[i] = [m.num_nodes for m in self.cyberspace]
                     self.sigma = self.sample_sigma()
                     self.sigmas[i] = self.sigma
+                    # save multiple draws for averaging in prediction
+                    self.multidraw()
 
             except JackPot:
                 # indicates we ended early
@@ -623,6 +640,7 @@ class BARN_base(BaseEstimator):
                 # shorten the saved results (or fill rest with NaNs?
                 self.phi = self.phi[:i-1]
                 self.ntrans_iter = self.ntrans_iter[:i-1]
+                self.multidraw()
 
         if Xte is not None:
             self.Xte = Xte
@@ -630,7 +648,10 @@ class BARN_base(BaseEstimator):
         return self
 
     def predict(self, X):
-        return np.sum([N.predict(X) for N in self.cyberspace], axis=0)
+        if len(self.saved_draws) > 0:
+            return np.mean([np.sum([N.predict(X) for N in cyberspace], axis=0) for cyberspace in self.saved_draws ], axis=0)
+        else:
+            return np.sum([N.predict(X) for N in self.cyberspace], axis=0)
 
     def phi_viz(self, outname='phi.png', close=True):
         '''
@@ -856,6 +877,20 @@ class BARN_base(BaseEstimator):
         if t*sig/np.sqrt(num)<= eps*gbar: # removed 1/n term on LHS
             raise JackPot
 
+    def multidraw(self):
+        '''
+        Save multiple draws of the multiple for averaging
+
+        Skip the first `self.burn` iters
+        Otherwise, keep every `self.save_every` model
+        '''
+        i = self.i
+        if self.save_every is None:
+            self.save_every = max(self.n_iter//10, 1)
+        # not an iteration to stop on
+        if i > 0 and i >= self.burn and i % self.save_every == 0:
+            self.saved_draws.append(self.cyberspace)
+
 class BARN(BARN_base, RegressorMixin):
     pass
 
@@ -873,7 +908,10 @@ class BARN_bin(BARN_base, ClassifierMixin):
         '''
         Return prediction as z-score
         '''
-        return np.sum([N.predict(X) for N in self.cyberspace], axis=0)
+        if len(self.saved_draws > 0):
+            return np.mean([np.sum([N.predict(X) for N in cyberspace], axis=0) for cyberspace in self.saved_draws], axis=0)
+        else:
+            return np.sum([N.predict(X) for N in self.cyberspace], axis=0)
 
     def update_target(self, X, Y_old):
         '''
