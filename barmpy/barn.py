@@ -12,6 +12,8 @@ from sklearn.utils import check_random_state as crs
 import sklearn.model_selection as skms
 import sklearn.metrics as metrics
 from sklearn.exceptions import ConvergenceWarning
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 import pickle
 import warnings
 HAVE_TF = True
@@ -330,6 +332,7 @@ class BARN_base(BaseEstimator):
 
     * `act` - Activation function, 'logistic' or 'relu', passed to `NN`
     * `batch_size` - batch size for gradient descent solvers, passed to `NN`
+    * `burn` - number of MCMC iterations to initially discard for burn-in
     * `callbacks` - dictionary of callbacks, keyed by function with values being arguments passed to the callback
     * `dname` - dataset name if saving output
     * `epochs` - number of neural network training epochs for gradient descent solver
@@ -338,6 +341,8 @@ class BARN_base(BaseEstimator):
     * `lr` - learning rate for solvers
     * `n_features_in_` - number of features expected in input data, can be set during `setup_nets` instead
     * `n_iter` - maximum number of MCMC iterations to perform.  One iter is a pass through each network in the ensemble
+    * `ndraw` - number of MCMC draws over which to average models
+    * `normalize` - flag to normalize input and output before training and prediction
     * `nu` - chi-squared parameter for prior on model error, recommend leaving default
     * `num_nets` - number of networks in the ensemble
     * `qq` - quantile for error prior to compute lambda, recommend leaving default
@@ -355,6 +360,7 @@ class BARN_base(BaseEstimator):
     def __init__(self,
             act=ACT,
             batch_size=512,
+            burn=None,
             callbacks=dict(),
             dname='default_name',
             epochs=10,
@@ -363,6 +369,8 @@ class BARN_base(BaseEstimator):
             lr=0.01,
             n_features_in_=None,
             n_iter=200,
+            ndraw=None,
+            normalize=True,
             nu=3,
             num_nets=10,
             qq=0.9,
@@ -377,8 +385,6 @@ class BARN_base(BaseEstimator):
             use_tf=False,
             verbose=False,
             warm_start=True,
-            ndraw=None,
-            burn=None
             ):
         self.num_nets = num_nets
         # check that transition probabilities look like list of numbers
@@ -441,6 +447,9 @@ class BARN_base(BaseEstimator):
         else:
             self.save_every = None
         self.ndraw = ndraw # unused
+        self.normalize = normalize
+        self.scale_x = None
+        self.scale_y = None
 
     def setup_nets(self, n_features_in_=None):
         '''
@@ -519,6 +528,17 @@ class BARN_base(BaseEstimator):
             Xva = XX
             Yva = YY
 
+        # optionally normalize data
+        self.scale_x = self.create_input_normalizer(Xtr, self.normalize)
+        self.scale_y = self.create_output_normalizer(Ytr, self.normalize)
+        if self.normalize:
+            Xtr = self.scale_x.transform(Xtr)
+            Ytr = self.scale_y.transform(Ytr.reshape((-1,1))).reshape(-1)
+            if Xva is not None:
+                Xva = self.scale_x.transform(Xva)
+                Yva = self.scale_y.transform(Yva.reshape((-1,1))).reshape(-1)
+
+
         # initialize fit as though all get equal share of Y
         for j,N in enumerate(self.cyberspace):
             N.train(Xtr,Ytr/self.num_nets)
@@ -529,6 +549,7 @@ class BARN_base(BaseEstimator):
         self.Ytr = Ytr
         self.Ytr_init = np.copy(Yh_tr)
         if Xte is not None:
+            Xte = scale_x.transform(Xte)
             Yh = np.sum([N.predict(Xte) for N in self.cyberspace], axis=0)
             self.Yte_init = np.copy(Yh)
 
@@ -649,10 +670,12 @@ class BARN_base(BaseEstimator):
         return self
 
     def predict(self, X):
+        X_tmp = self.scale_x.transform(X)
         if len(self.saved_draws) > 0:
-            return np.mean([np.sum([N.predict(X) for N in cyberspace], axis=0) for cyberspace in self.saved_draws ], axis=0)
+            ans = np.mean([np.sum([N.predict(X_tmp) for N in cyberspace], axis=0) for cyberspace in self.saved_draws ], axis=0)
         else:
-            return np.sum([N.predict(X) for N in self.cyberspace], axis=0)
+            ans = np.sum([N.predict(X_tmp) for N in self.cyberspace], axis=0)
+        return self.scale_y.inverse_transform(ans.reshape((-1,1))).reshape(-1)
 
     def phi_viz(self, outname='phi.png', close=True):
         '''
@@ -892,6 +915,20 @@ class BARN_base(BaseEstimator):
         if i > 0 and i >= self.burn and i % self.save_every == 0:
             self.saved_draws.append(self.cyberspace)
 
+    def create_input_normalizer(self, X, normalize=False):
+        if normalize:
+            scale_x = PCA(n_components=X.shape[1], whiten=False)
+        else:
+            # dummy scaler
+            scale_x = StandardScaler(with_mean=False, with_std=False)
+        scale_x.fit(X)
+        return scale_x
+        
+    def create_output_normalizer(self, Y, normalize=False):
+        scale_y = StandardScaler(with_mean=normalize, with_std=normalize)
+        scale_y.fit(Y.reshape((-1,1)))
+        return scale_y
+
 class BARN(BARN_base, RegressorMixin):
     pass
 
@@ -899,20 +936,29 @@ class BARN_bin(BARN_base, ClassifierMixin):
     '''
     Bayesian Additive Regression Networks ensemble for binary classification.
     '''
+    def create_output_normalizer(self, Y, normalize=False):
+        # leave classes untouched
+        scale_y = StandardScaler(with_mean=False, with_std=False)
+        scale_y.fit(Y.reshape((-1,1)))
+        return scale_y
+
     def sample_sigma(self):
         return 1
 
     def predict(self, X):
-        return scipy.stats.norm.cdf(self.predict_z(X))
+        X_tmp = self.scale_x.transform(X)
+        return scipy.stats.norm.cdf(self.predict_z(X_tmp))
 
     def predict_z(self, X):
         '''
         Return prediction as z-score
         '''
+        X_tmp = self.scale_x.transform(X)
         if len(self.saved_draws) > 0:
-            return np.mean([np.sum([N.predict(X) for N in cyberspace], axis=0) for cyberspace in self.saved_draws], axis=0)
+            ans = np.mean([np.sum([N.predict(X_tmp) for N in cyberspace], axis=0) for cyberspace in self.saved_draws], axis=0)
         else:
-            return np.sum([N.predict(X) for N in self.cyberspace], axis=0)
+            ans = np.sum([N.predict(X_tmp) for N in self.cyberspace], axis=0)
+        return self.scale_y.inverse_transform(ans.reshape((-1,1))).reshape(-1)
 
     def update_target(self, X, Y_old):
         '''

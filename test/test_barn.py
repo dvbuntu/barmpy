@@ -16,20 +16,21 @@ class TestBARN(unittest.TestCase):
                 random_state=42,
                 epochs=100,
                 act='logistic',
+                normalize=False,
                 l=1,
                 use_tf=self.USE_TF)
         self.model.setup_nets(n_features_in_=2)
         # Setup linear relationship as test data, scaled
         self.n = 1000
-        self.X = np.arange(2*self.n).reshape((self.n,2))
-        self.Y = self.X[:,0] + 2*self.X[:,1]
-        scale_x = PCA(n_components=self.X.shape[1], whiten=False)
-        scale_x.fit(self.X)
-        self.X = scale_x.transform(self.X)
-        Xtr = scale_x.transform(self.X)
+        self.Xo = np.arange(2*self.n).reshape((self.n,2))
+        self.Yo = self.Xo[:,0] + 2*self.Xo[:,1]
+        scale_x = PCA(n_components=self.Xo.shape[1], whiten=False)
+        scale_x.fit(self.Xo)
+        self.X = scale_x.transform(self.Xo)
+        #Xtr = scale_x.transform(self.Xo)
         scale_y = StandardScaler() # no need to PCA
-        scale_y.fit(self.Y.reshape((-1,1)))
-        self.Y = scale_y.transform(self.Y.reshape((-1,1))).reshape(-1)
+        scale_y.fit(self.Yo.reshape((-1,1)))
+        self.Y = scale_y.transform(self.Yo.reshape((-1,1))).reshape(-1)
 
     def test_train_batchmeans(self):
         # Test running of train and batch means analysis
@@ -54,6 +55,7 @@ class TestBARN(unittest.TestCase):
                 random_state=42,
                 epochs=100,
                 act='logistic',
+                normalize=False,
                 l=1,
                 use_tf=self.USE_TF)
         self.model_bin.setup_nets(n_features_in_=2)
@@ -101,7 +103,7 @@ class TestBARN(unittest.TestCase):
     def test_improvement(self):
         callbacks = {BARN.improvement:{'check_every':1,'skip_first':4}}
         n_iter=100
-        model = BARN(num_nets=1, callbacks=callbacks, n_iter=n_iter)
+        model = BARN(num_nets=1, normalize=False, callbacks=callbacks, n_iter=n_iter)
         model.fit(self.X, self.Y)
         self.assertGreaterEqual(model.n_iter, 3)
         self.assertLess(model.n_iter, n_iter)
@@ -110,7 +112,7 @@ class TestBARN(unittest.TestCase):
         callbacks = {BARN.trans_enough:{'check_every':1,
                                         'skip_first':4,
                                         'ntrans':4}}
-        model = BARN(num_nets=4, callbacks=callbacks)
+        model = BARN(num_nets=4, normalize=False, callbacks=callbacks)
         model.fit(self.X, self.Y)
         self.assertGreaterEqual(model.n_iter, 3)
         self.assertLess(model.ntrans_iter[-1], 10)
@@ -119,7 +121,7 @@ class TestBARN(unittest.TestCase):
         callbacks = {BARN.stable_dist:{'check_every':1,
                                         'skip_first':4,
                                         'tol':.2}}
-        model = BARN(num_nets=10, callbacks=callbacks, n_iter=100)
+        model = BARN(num_nets=10, normalize=False, callbacks=callbacks, n_iter=100)
         model.fit(self.X, self.Y)
         self.assertGreaterEqual(model.n_iter, 3)
         self.assertLess(model.n_iter, 100)
@@ -129,13 +131,13 @@ class TestBARN(unittest.TestCase):
                                         'skip_first':5,
                                         't':1,
                                         'eps':1}}
-        model = BARN(num_nets=10, callbacks=callbacks, n_iter=100)
+        model = BARN(num_nets=10, normalize=False, callbacks=callbacks, n_iter=100)
         model.fit(self.X, self.Y)
         self.assertGreaterEqual(model.n_iter, 4)
         self.assertLess(model.n_iter, 100)
 
     def test_multidraw(self):
-        model = BARN(num_nets=4, n_iter=100,
+        model = BARN(num_nets=4, n_iter=100, normalize=False,
                      burn=50, ndraw=10)
         model.fit(self.X, self.Y)
         self.assertEqual(len(model.saved_draws), 10)
@@ -143,6 +145,13 @@ class TestBARN(unittest.TestCase):
         np.testing.assert_allclose(pred, self.Y,
                                rtol=0.01, atol=0.5)
 
+    def test_normalizer(self):
+        model = BARN(num_nets=10, n_iter=100, normalize=True,
+                     burn=50, ndraw=1)
+        model.fit(self.Xo, self.Yo)
+        pred = model.scale_y.transform(model.predict(self.Xo).reshape((-1,1))).reshape(-1)
+        np.testing.assert_allclose(pred, self.Y,
+                               rtol=0.01, atol=0.2)
 
 
 class TestBARN_TF(TestBARN):
