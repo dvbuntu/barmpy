@@ -440,6 +440,7 @@ class BARN_base(BaseEstimator):
             self.save_every = min(self.n_iter - self.burn, max(1,(self.n_iter - self.burn)//ndraw))
         else:
             self.save_every = None
+        self.ndraw = ndraw # unused
 
     def setup_nets(self, n_features_in_=None):
         '''
@@ -908,7 +909,7 @@ class BARN_bin(BARN_base, ClassifierMixin):
         '''
         Return prediction as z-score
         '''
-        if len(self.saved_draws > 0):
+        if len(self.saved_draws) > 0:
             return np.mean([np.sum([N.predict(X) for N in cyberspace], axis=0) for cyberspace in self.saved_draws], axis=0)
         else:
             return np.sum([N.predict(X) for N in self.cyberspace], axis=0)

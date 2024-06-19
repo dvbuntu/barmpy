@@ -139,6 +139,9 @@ class TestBARN(unittest.TestCase):
                      burn=50, ndraw=10)
         model.fit(self.X, self.Y)
         self.assertEqual(len(model.saved_draws), 10)
+        pred = model.predict(self.X)
+        np.testing.assert_allclose(pred, self.Y,
+                               rtol=0.01, atol=0.5)
 
 
 
