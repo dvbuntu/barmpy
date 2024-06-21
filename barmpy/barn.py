@@ -462,6 +462,7 @@ class BARN_base(BaseEstimator):
         self.cyberspace = [self.NN(self.init_neurons, l=self.l, lr=self.lr, epochs=self.epochs, r=self.random_state+i, x_in=n_features_in_, batch_size=self.batch_size, solver=self.solver, tol=self.tol, reg=self.reg, act=self.act, binary=self._binary) for i in range(self.num_nets)]
         self.initialized=True
         self.saved_draws = []
+        self.sigma_draws = []
 
     def sample_sigma(self):
         '''
@@ -676,6 +677,18 @@ class BARN_base(BaseEstimator):
         else:
             ans = np.sum([N.predict(X_tmp) for N in self.cyberspace], axis=0)
         return self.scale_y.inverse_transform(ans.reshape((-1,1))).reshape(-1)
+
+    def predict_with_interval(self, X, alpha=0.05):
+        z = scipy.stats.norm.ppf(1-alpha/2)
+        X_tmp = self.scale_x.transform(X)
+        ans = self.predict(X)
+        n = len(self.sigma_draws)
+        if n > 0:
+            sig = np.sum(self.sigma_draws)
+        else:
+            sig = self.sigma
+        sig_unscaled = self.scale_y.inverse_transform([[sig]])[0,0]
+        return ans - z*sig_unscaled/np.sqrt(n), ans + z*sig_unscaled/np.sqrt(n)
 
     def phi_viz(self, outname='phi.png', close=True):
         '''
@@ -914,6 +927,7 @@ class BARN_base(BaseEstimator):
         # not an iteration to stop on
         if i > 0 and i >= self.burn and i % self.save_every == 0:
             self.saved_draws.append(self.cyberspace)
+            self.sigma_draws.append(self.sigma)
 
     def create_input_normalizer(self, X, normalize=False):
         if normalize:
@@ -946,8 +960,7 @@ class BARN_bin(BARN_base, ClassifierMixin):
         return 1
 
     def predict(self, X):
-        X_tmp = self.scale_x.transform(X)
-        return scipy.stats.norm.cdf(self.predict_z(X_tmp))
+        return scipy.stats.norm.cdf(self.predict_z(X))
 
     def predict_z(self, X):
         '''
@@ -959,6 +972,17 @@ class BARN_bin(BARN_base, ClassifierMixin):
         else:
             ans = np.sum([N.predict(X_tmp) for N in self.cyberspace], axis=0)
         return self.scale_y.inverse_transform(ans.reshape((-1,1))).reshape(-1)
+
+    def predict_z_with_interval(self, X):
+        z = scipy.stats.norm.ppf(1-alpha/2)
+        ans = self.predict_z(X)
+        n = len(self.sigma_draws)
+        sig_unscaled = n # fixed sigma_i=1 for classification
+        return ans - z*sig_unscaled/np.sqrt(n), ans + z*sig_unscaled/np.sqrt(n)
+
+    def predict_with_interval(self, X):
+        lower, upper = self.predict_z_with_interval(X)
+        return scipy.stats.norm.cdf(self.predict_z(lower)), scipy.stats.norm.cdf(self.predict_z(upper))
 
     def update_target(self, X, Y_old):
         '''
