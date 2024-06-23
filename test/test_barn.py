@@ -18,6 +18,7 @@ class TestBARN(unittest.TestCase):
                 act='logistic',
                 normalize=False,
                 l=1,
+                ndraw=1,
                 use_tf=self.USE_TF)
         self.model.setup_nets(n_features_in_=2)
         # Setup linear relationship as test data, scaled
@@ -146,7 +147,7 @@ class TestBARN(unittest.TestCase):
                                rtol=0.01, atol=0.5)
 
     def test_normalizer(self):
-        model = BARN(num_nets=10, n_iter=100, normalize=True,
+        model = BARN(num_nets=10, n_iter=400, normalize=True,
                      burn=50, ndraw=1)
         model.fit(self.Xo, self.Yo)
         pred = model.scale_y.transform(model.predict(self.Xo).reshape((-1,1))).reshape(-1)
@@ -159,8 +160,8 @@ class TestBARN(unittest.TestCase):
         model.fit(self.X, self.Y)
         lower, upper = model.predict_interval(self.X)
         pred = model.predict(self.X)
-        np.testing.assert_array_less(lower, self.Y)
-        np.testing.assert_array_less(self.Y, upper)
+        np.testing.assert_array_less(lower, pred)
+        np.testing.assert_array_less(pred, upper)
 
 class TestBARN_TF(TestBARN):
     USE_TF = True

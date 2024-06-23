@@ -665,6 +665,8 @@ class BARN_base(BaseEstimator):
                 self.ntrans_iter = self.ntrans_iter[:i-1]
                 self.multidraw()
 
+        if len(self.saved_draws) == 0:
+            self.saved_draws.append(self.cyberspace)
         if Xte is not None:
             self.Xte = Xte
             self.Yte = Yte
@@ -675,7 +677,7 @@ class BARN_base(BaseEstimator):
         Return all drawn MCMC predictions for given input data
         '''
         X_tmp = self.scale_x.transform(X)
-        ans = np.array([np.sum([N.predict(X_tmp) for N in cyberspace], axis=0) for cyberspace in self.saved_draws ])
+        ans = np.array([np.sum([N.predict(X_tmp) for N in cyberspace], axis=0) for cyberspace in self.saved_draws])
         sh = (len(self.saved_draws), X_tmp.shape[0])
         return self.scale_y.inverse_transform(ans.reshape((-1,1))).reshape(sh)
 
@@ -687,10 +689,10 @@ class BARN_base(BaseEstimator):
         Predict upper and lower confidence interval at alpha level
         Aggregate multiple MCMC draws using t-stat of point est
         '''
-        n = len(self.saved_draws)
-        t = scipy.stats.t.ppf(1-alpha/2, n-1)
         all_ans = self.predict_all(X)
         ans = np.mean(all_ans, axis=0)
+        #n = len(self.saved_draws)
+        #t = scipy.stats.t.ppf(1-alpha/2, n-1)
         #if n > 0:
         #    sig = np.sqrt(np.sum(np.array(self.sigma_draws)**2))
         #else:
