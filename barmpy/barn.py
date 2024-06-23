@@ -670,29 +670,36 @@ class BARN_base(BaseEstimator):
             self.Yte = Yte
         return self
 
-    def predict(self, X):
+    def predict_all(self, X):
+        '''
+        Return all drawn MCMC predictions for given input data
+        '''
         X_tmp = self.scale_x.transform(X)
-        if len(self.saved_draws) > 0:
-            ans = np.mean([np.sum([N.predict(X_tmp) for N in cyberspace], axis=0) for cyberspace in self.saved_draws ], axis=0)
-        else:
-            ans = np.sum([N.predict(X_tmp) for N in self.cyberspace], axis=0)
-        return self.scale_y.inverse_transform(ans.reshape((-1,1))).reshape(-1)
+        ans = np.array([np.sum([N.predict(X_tmp) for N in cyberspace], axis=0) for cyberspace in self.saved_draws ])
+        sh = (len(self.saved_draws), X_tmp.shape[0])
+        return self.scale_y.inverse_transform(ans.reshape((-1,1))).reshape(sh)
+
+    def predict(self, X):
+        return np.mean(self.predict_all(X), axis=0)
 
     def predict_interval(self, X, alpha=0.05):
         '''
         Predict upper and lower confidence interval at alpha level
-        Aggregate multiple MCMC draws using point and sigma est of each
+        Aggregate multiple MCMC draws using t-stat of point est
         '''
-        z = scipy.stats.norm.ppf(1-alpha/2)
-        X_tmp = self.scale_x.transform(X)
-        ans = self.predict(X)
-        n = len(self.sigma_draws)
-        if n > 0:
-            sig = np.sum(self.sigma_draws)
-        else:
-            sig = self.sigma
-        sig_unscaled = self.scale_y.inverse_transform([[sig]])[0,0]
-        return ans - z*sig_unscaled/np.sqrt(n), ans + z*sig_unscaled/np.sqrt(n)
+        n = len(self.saved_draws)
+        t = scipy.stats.t.ppf(1-alpha/2, n-1)
+        all_ans = self.predict_all(X)
+        ans = np.mean(all_ans, axis=0)
+        #if n > 0:
+        #    sig = np.sqrt(np.sum(np.array(self.sigma_draws)**2))
+        #else:
+        #    sig = self.sigma
+        #sig_unscaled = self.scale_y.inverse_transform([[sig]])[0,0]
+        # use scipy t-stat to simplify confidence interval at each pt
+        tstat = scipy.stats.ttest_1samp(all_ans, ans, axis=0)
+        ci = tstat.confidence_interval(1-alpha)
+        return ci.low, ci.high
 
     def phi_viz(self, outname='phi.png', close=True):
         '''
@@ -930,7 +937,7 @@ class BARN_base(BaseEstimator):
             self.save_every = 10 # default 10%
         # not an iteration to stop on
         if i > 0 and i >= self.burn and i % self.save_every == 0:
-            self.saved_draws.append(self.cyberspace)
+            self.saved_draws.append(self.cyberspace[:])
             self.sigma_draws.append(self.sigma)
 
     def create_input_normalizer(self, X, normalize=False):
