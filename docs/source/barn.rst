@@ -44,13 +44,19 @@ Now we'll initialize a `BARN` setup with 3 `NN`'s.  We'll use the default
    model = BARN(num_nets=3, dname='example', epochs=100)
 
 
-Actually running the model is straightforward, but you can tweak the MCMC parameters to your liking.  After the specified number of MCMC iterations, your model is ready for pointwise inference by using the last ensemble in the chain.
+Actually running the model is straightforward, but you can tweak the MCMC parameters to your liking.  After the specified number of MCMC iterations, your model is ready for pointwise inference by averaging over multiple draws of the MCMC (default 10% post burn-in).
 
 .. code-block:: python
 
    model.fit(X,Y)
    Yhat = model.predict(X)
    print((Y-Yhat)**2/np.std(Y)) # relative error
+
+If you like, you can use the multiple MCMC draws produced during the modeling to estimate a confidence interval around this pointwise prediction.  This uses the pointwise prediction and `sigma` estimate from each one of the draws to produce a `1-alpha` bound centered at the pointwise prediction.
+
+.. code-block:: python
+
+   lower, upper = model.predict_interval(X, alpha=0.05)
 
 Custom Callback Example
 ~~~~~~~~~~~~~~~~~~~~~~~

@@ -678,7 +678,11 @@ class BARN_base(BaseEstimator):
             ans = np.sum([N.predict(X_tmp) for N in self.cyberspace], axis=0)
         return self.scale_y.inverse_transform(ans.reshape((-1,1))).reshape(-1)
 
-    def predict_with_interval(self, X, alpha=0.05):
+    def predict_interval(self, X, alpha=0.05):
+        '''
+        Predict upper and lower confidence interval at alpha level
+        Aggregate multiple MCMC draws using point and sigma est of each
+        '''
         z = scipy.stats.norm.ppf(1-alpha/2)
         X_tmp = self.scale_x.transform(X)
         ans = self.predict(X)
@@ -916,20 +920,23 @@ class BARN_base(BaseEstimator):
 
     def multidraw(self):
         '''
-        Save multiple draws of the multiple for averaging
+        Save multiple draws of the multiple for averaged prediction
 
         Skip the first `self.burn` iters
         Otherwise, keep every `self.save_every` model
         '''
         i = self.i
         if self.save_every is None:
-            self.save_every = max(self.n_iter//10, 1)
+            self.save_every = 10 # default 10%
         # not an iteration to stop on
         if i > 0 and i >= self.burn and i % self.save_every == 0:
             self.saved_draws.append(self.cyberspace)
             self.sigma_draws.append(self.sigma)
 
     def create_input_normalizer(self, X, normalize=False):
+        '''
+        Setup PCA normalization of input features
+        '''
         if normalize:
             scale_x = PCA(n_components=X.shape[1], whiten=False)
         else:
@@ -939,6 +946,9 @@ class BARN_base(BaseEstimator):
         return scale_x
         
     def create_output_normalizer(self, Y, normalize=False):
+        '''
+        Setup PCA normalization of target output
+        '''
         scale_y = StandardScaler(with_mean=normalize, with_std=normalize)
         scale_y.fit(Y.reshape((-1,1)))
         return scale_y
@@ -973,15 +983,15 @@ class BARN_bin(BARN_base, ClassifierMixin):
             ans = np.sum([N.predict(X_tmp) for N in self.cyberspace], axis=0)
         return self.scale_y.inverse_transform(ans.reshape((-1,1))).reshape(-1)
 
-    def predict_z_with_interval(self, X):
+    def predict_z_interval(self, X, alpha=0.05):
         z = scipy.stats.norm.ppf(1-alpha/2)
         ans = self.predict_z(X)
         n = len(self.sigma_draws)
         sig_unscaled = n # fixed sigma_i=1 for classification
         return ans - z*sig_unscaled/np.sqrt(n), ans + z*sig_unscaled/np.sqrt(n)
 
-    def predict_with_interval(self, X):
-        lower, upper = self.predict_z_with_interval(X)
+    def predict_interval(self, X, alpha=0.05):
+        lower, upper = self.predict_z_interval(X)
         return scipy.stats.norm.cdf(self.predict_z(lower)), scipy.stats.norm.cdf(self.predict_z(upper))
 
     def update_target(self, X, Y_old):

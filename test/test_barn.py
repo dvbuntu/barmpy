@@ -157,7 +157,7 @@ class TestBARN(unittest.TestCase):
         model = BARN(num_nets=4, n_iter=100, normalize=False,
                      burn=50, ndraw=10)
         model.fit(self.X, self.Y)
-        lower, upper = model.predict_with_interval(self.X)
+        lower, upper = model.predict_interval(self.X)
         pred = model.predict(self.X)
         np.testing.assert_array_less(lower, self.Y)
         np.testing.assert_array_less(self.Y, upper)
