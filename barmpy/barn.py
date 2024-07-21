@@ -14,6 +14,7 @@ import sklearn.metrics as metrics
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+import pymc
 import pickle
 import warnings
 HAVE_TF = True
@@ -690,18 +691,11 @@ class BARN_base(BaseEstimator):
         Aggregate multiple MCMC draws using t-stat of point est
         '''
         all_ans = self.predict_all(X)
-        ans = np.mean(all_ans, axis=0)
-        #n = len(self.saved_draws)
-        #t = scipy.stats.t.ppf(1-alpha/2, n-1)
-        #if n > 0:
-        #    sig = np.sqrt(np.sum(np.array(self.sigma_draws)**2))
-        #else:
-        #    sig = self.sigma
-        #sig_unscaled = self.scale_y.inverse_transform([[sig]])[0,0]
-        # use scipy t-stat to simplify confidence interval at each pt
-        tstat = scipy.stats.ttest_1samp(all_ans, ans, axis=0)
-        ci = tstat.confidence_interval(1-alpha)
-        return ci.low, ci.high
+        intervals = np.zeros((all_ans.shape[1],2))
+        # No `axis` command for hdi, loop through
+        for i in range(all_ans.shape[1]):
+            intervals[i] = pymc.stats.hdi(all_ans[:,i], 1-alpha)
+        return intervals[:,0], intervals[:,1]
 
     def phi_viz(self, outname='phi.png', close=True):
         '''
@@ -981,27 +975,42 @@ class BARN_bin(BARN_base, ClassifierMixin):
     def predict(self, X):
         return scipy.stats.norm.cdf(self.predict_z(X))
 
+    def predict_z_all(self, X):
+        X_tmp = self.scale_x.transform(X)
+        return np.array([np.sum([N.predict(X_tmp).reshape(-1) for N in cyberspace], axis=0) for cyberspace in self.saved_draws])
+
+    def predict_all(self, X):
+        return scipy.stats.norm.cdf(self.predict_z_all(X))
+
     def predict_z(self, X):
         '''
         Return prediction as z-score
         '''
-        X_tmp = self.scale_x.transform(X)
         if len(self.saved_draws) > 0:
-            ans = np.mean([np.sum([N.predict(X_tmp) for N in cyberspace], axis=0) for cyberspace in self.saved_draws], axis=0)
+            ans = np.mean(self.predict_z_all(X), axis=0)
         else:
+            X_tmp = self.scale_x.transform(X)
             ans = np.sum([N.predict(X_tmp) for N in self.cyberspace], axis=0)
         return self.scale_y.inverse_transform(ans.reshape((-1,1))).reshape(-1)
 
     def predict_z_interval(self, X, alpha=0.05):
-        z = scipy.stats.norm.ppf(1-alpha/2)
-        ans = self.predict_z(X)
-        n = len(self.sigma_draws)
-        sig_unscaled = n # fixed sigma_i=1 for classification
-        return ans - z*sig_unscaled/np.sqrt(n), ans + z*sig_unscaled/np.sqrt(n)
+        all_ans = self.predict_z_all(X)
+        # old CI was on mean, not posterior
+        #z = scipy.stats.norm.ppf(1-alpha/2)
+        #ans = self.predict_z(X)
+        #n = len(self.sigma_draws)
+        #sig_unscaled = n # fixed sigma_i=1 for classification
+        #return ans - z*sig_unscaled/np.sqrt(n), ans + z*sig_unscaled/np.sqrt(n)
+        intervals = np.zeros((all_ans.shape[1],2))
+        # No `axis` command for hdi, loop through
+        for i in range(all_ans.shape[1]):
+            intervals[i] = pymc.stats.hdi(all_ans[:,i], 1-alpha)
+        return intervals[:,0], intervals[:,1]
+
 
     def predict_interval(self, X, alpha=0.05):
         lower, upper = self.predict_z_interval(X)
-        return scipy.stats.norm.cdf(self.predict_z(lower)), scipy.stats.norm.cdf(self.predict_z(upper))
+        return scipy.stats.norm.cdf(lower), scipy.stats.norm.cdf(upper)
 
     def update_target(self, X, Y_old):
         '''
