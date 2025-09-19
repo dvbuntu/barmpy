@@ -128,7 +128,7 @@ _ = barn_model.fit(Xtr,Ytr, Xva, Yva, Xte, Yte,)
 # analyze results
 pred = barn_model.predict(Xte)
 mse_barn_te = np.mean((Yte - pred)**2)
-print(mse_barn_te, mse_ols_te) # note BARN note as good in this case
+print(mse_barn_te, mse_ols_te) # note BARN not as good in this case
 ```
 
 In this particular situation, the BARN model has a slightly *higher* test MSE than the OLS model.  This isn't surprising, since the OLS model has the exact right functional form, while BARN is trying to simulate that.  

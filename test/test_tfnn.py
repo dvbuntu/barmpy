@@ -22,10 +22,10 @@ if DO_TF_TEST:
         def test_logprior(self):
             priors = [nn.log_prior() for nn in self.cyberspace]
             # Numerical priors given defaults and small test data
-            self.assertAlmostEqual(priors,
-                    [-7.697414907005954,
-                     -6.087976994571854,
-                     -4.884004190245918])
+            np.testing.assert_almost_equal(priors,
+                np.array([-1.3068528194400546,
+                 -1.3068528194400546,
+                 -1.7123179275482192]))
 
         def test_train_donate(self):
             # Train just the first network

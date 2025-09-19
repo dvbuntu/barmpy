@@ -66,7 +66,7 @@ class NN(object):
             mlp = sknn.MLPClassifier
         else:
             mlp = sknn.MLPRegressor
-        self.model = mlp([num_nodes],
+        self.model = mlp(hidden_layer_sizes=[num_nodes],
                 learning_rate_init=lr,
                 random_state=r,
                 max_iter=epochs,
@@ -551,7 +551,7 @@ class BARN_base(BaseEstimator):
         self.Ytr = Ytr
         self.Ytr_init = np.copy(Yh_tr)
         if Xte is not None:
-            Xte = scale_x.transform(Xte)
+            Xte = self.scale_x.transform(Xte)
             Yh = np.sum([N.predict(Xte) for N in self.cyberspace], axis=0)
             self.Yte_init = np.copy(Yh)
 
